@@ -1,18 +1,24 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import PasswordInput from '../components/PasswordInput';
-import { validateUsername, validatePassword } from '../utils/validation';
+import { validateLoginUsername, validateLoginPassword } from '../utils/validation';
+import { useAuth } from '../hooks/useAuth';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { login, loading, error: authError } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({ username: '', password: '' });
+  const [apiError, setApiError] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setApiError('');
 
-    const usernameError = validateUsername(username);
-    const passwordError = validatePassword(password);
+    const usernameError = validateLoginUsername(username);
+    const passwordError = validateLoginPassword(password);
 
     const newErrors = {
       username: usernameError,
@@ -22,13 +28,13 @@ export default function Login() {
     setErrors(newErrors);
 
     if (!usernameError && !passwordError) {
-      console.log('Login Form Data:', {
-        username,
-        password,
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      console.log('Login validation failed:', newErrors);
+      try {
+        await login(username, password);
+        navigate('/dashboard');
+      } catch (err) {
+        // Display the exact backend error message
+        setApiError(getErrorMessage(err));
+      }
     }
   };
 
@@ -67,11 +73,18 @@ export default function Login() {
             error={errors.password}
           />
 
+          {apiError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {apiError}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full py-2.5 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors mt-4 text-sm"
+            disabled={loading}
+            className="w-full py-2.5 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors mt-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign In
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
