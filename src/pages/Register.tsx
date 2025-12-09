@@ -1,65 +1,74 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import PasswordInput from '../components/PasswordInput';
-import { validateUsername, validatePassword, validateConfirmPassword, validateName } from '../utils/validation';
+import {
+  validatePassword,
+  validateConfirmPassword,
+  validateName,
+  validateEmail,
+} from '../utils/validation';
 import { useAuth } from '../hooks/useAuth';
-import { getFieldError, getErrorMessage } from '../utils/errorHandler';
-import { ApiError } from '../services/api';
+import { getFieldError } from '../utils/errorHandler';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register, loading, error: authError } = useAuth();
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState({ name: '', username: '', password: '', confirmPassword: '' });
-  const [apiError, setApiError] = useState('');
+  const { initiateRegistration, loading, error } = useAuth();
+
+  const [name, setName] = useState('Test User');
+  const [email, setEmail] = useState('test@example.com');
+  const [password, setPassword] = useState('Test@1234');
+  const [confirmPassword, setConfirmPassword] = useState('Test@1234');
+  const [errors, setErrors] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setApiError('');
 
     const nameError = validateName(name);
-    const usernameError = validateUsername(username);
+    const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
     const confirmPasswordError = validateConfirmPassword(password, confirmPassword);
 
     const newErrors = {
       name: nameError,
-      username: usernameError,
+      email: emailError,
       password: passwordError,
       confirmPassword: confirmPasswordError,
     };
 
     setErrors(newErrors);
 
-    if (!nameError && !usernameError && !passwordError && !confirmPasswordError) {
+    if (!nameError && !emailError && !passwordError && !confirmPasswordError) {
       try {
-        await register(username, password, name);
-        navigate('/dashboard');
-      } catch (err) {
+        await initiateRegistration(name, email, password);
+        navigate('/verify-otp');
+      } catch (err: any) {
+        const errorMessage = err?.message || '';
+        if (errorMessage.includes('Verification already in progress') || errorMessage.includes('already in progress')) {
+          navigate('/verify-otp');
+          return;
+        }
+
         // Get backend validation errors if any
         const backendNameError = getFieldError(err, 'name');
-        const backendUsernameError = getFieldError(err, 'username');
+        const backendEmailError = getFieldError(err, 'email');
         const backendPasswordError = getFieldError(err, 'password');
-        
+
         // Update field errors with backend validation errors
-        if (backendNameError || backendUsernameError || backendPasswordError) {
+        if (backendNameError || backendEmailError || backendPasswordError) {
           setErrors({
             name: backendNameError || nameError,
-            username: backendUsernameError || usernameError,
+            email: backendEmailError || emailError,
             password: backendPasswordError || passwordError,
             confirmPassword: confirmPasswordError,
           });
         }
-        
-        // Show general error message if no field-specific errors
-        if (!backendNameError && !backendUsernameError && !backendPasswordError) {
-          setApiError(getErrorMessage(err));
-        } else {
-          setApiError(''); // Clear general error if we have field errors
-        }
+
+        // Error from auth context will be shown if no field-specific errors
       }
     }
   };
@@ -103,20 +112,20 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Username
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Email
             </label>
             <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className={`w-full px-3 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                errors.username ? 'border-red-500' : 'border-gray-300'
+                errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="Enter your username"
+              placeholder="Enter your email"
             />
-            {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
 
           <PasswordInput
@@ -137,9 +146,9 @@ export default function Register() {
             error={errors.confirmPassword}
           />
 
-          {apiError && (
+          {error && !errors.name && !errors.email && !errors.password && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {apiError}
+              {error}
             </div>
           )}
 
@@ -148,7 +157,7 @@ export default function Register() {
             disabled={loading}
             className="w-full py-2.5 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors mt-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? 'Sending OTP...' : 'Continue'}
           </button>
         </form>
 

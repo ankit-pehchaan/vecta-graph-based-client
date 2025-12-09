@@ -7,32 +7,54 @@ interface ApiResponse<T = any> {
 }
 
 interface TokenResponse {
-  username: string;
-  name?: string;
+  email: string;
+  name: string;
   access_token: string;
   refresh_token: string;
   token_type?: string;
 }
 
 interface RegisterRequest {
-  username: string;
+  email: string;
   password: string;
   name: string;
 }
 
+interface InitiateRegistrationRequest {
+  name: string;
+  email: string;
+  password: string;
+}
+
+interface InitiateRegistrationResponse {
+  verification_token: string;
+}
+
+interface VerifyOTPRequest {
+  otp: string;
+}
+
+// VerifyOTPResponse is the same as TokenResponse
+type VerifyOTPResponse = TokenResponse;
+
 interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 
 class ApiError extends Error {
+  statusCode?: number;
+  data?: any;
+
   constructor(
     message: string,
-    public statusCode?: number,
-    public data?: any
+    statusCode?: number,
+    data?: any
   ) {
     super(message);
     this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.data = data;
   }
 }
 
@@ -75,12 +97,12 @@ async function apiClient<T>(
 }
 
 export async function registerUser(
-  username: string,
+  email: string,
   password: string,
   name: string
 ): Promise<TokenResponse> {
   const requestBody: RegisterRequest = {
-    username,
+    email,
     password,
     name,
   };
@@ -91,12 +113,42 @@ export async function registerUser(
   });
 }
 
+export async function initiateRegistration(
+  name: string,
+  email: string,
+  password: string
+): Promise<InitiateRegistrationResponse> {
+  const requestBody: InitiateRegistrationRequest = {
+    name,
+    email,
+    password,
+  };
+
+  return apiClient<InitiateRegistrationResponse>('/api/v1/auth/register/initiate', {
+    method: 'POST',
+    body: JSON.stringify(requestBody),
+  });
+}
+
+export async function verifyOTP(
+  otp: string
+): Promise<VerifyOTPResponse> {
+  const requestBody: VerifyOTPRequest = {
+    otp: otp,
+  };
+
+  return apiClient<VerifyOTPResponse>('/api/v1/auth/register/verify', {
+    method: 'POST',
+    body: JSON.stringify(requestBody),
+  });
+}
+
 export async function loginUser(
-  username: string,
+  email: string,
   password: string
 ): Promise<TokenResponse> {
   const requestBody: LoginRequest = {
-    username,
+    email,
     password,
   };
 
@@ -196,7 +248,7 @@ export interface Insurance {
 }
 
 export interface FinancialProfile {
-  username: string;
+  email: string;
   goals: Goal[];
   assets: Asset[];
   liabilities: Liability[];

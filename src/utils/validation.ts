@@ -1,13 +1,3 @@
-export const validateUsername = (username: string, minLength = 5): string => {
-  if (!username.trim()) {
-    return 'Username is required';
-  }
-  if (username.length < minLength) {
-    return `Username must be at least ${minLength} characters`;
-  }
-  return '';
-};
-
 export const validatePassword = (password: string, minLength = 8): string => {
   if (!password) {
     return 'Password is required';
@@ -50,14 +40,35 @@ export const validateName = (name: string): string => {
   return '';
 };
 
-// Simple validations for login (no complexity checks for security)
-export const validateLoginUsername = (username: string): string => {
-  if (!username.trim()) {
-    return 'Username is required';
+export const validateEmail = (email: string): string => {
+  if (!email.trim()) {
+    return 'Email is required';
   }
+  
+  // Basic email regex pattern
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!emailRegex.test(email)) {
+    return 'Please enter a valid email address';
+  }
+  
   return '';
 };
 
+export const validateOTP = (otp: string): string => {
+  if (!otp.trim()) {
+    return 'OTP is required';
+  }
+  
+  // OTP must be exactly 6 digits
+  if (!/^\d{6}$/.test(otp)) {
+    return 'OTP must be exactly 6 digits';
+  }
+  
+  return '';
+};
+
+// Simple validations for login (no complexity checks for security)
 export const validateLoginPassword = (password: string): string => {
   if (!password) {
     return 'Password is required';

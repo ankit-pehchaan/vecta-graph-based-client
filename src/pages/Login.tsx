@@ -1,39 +1,35 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import PasswordInput from '../components/PasswordInput';
-import { validateLoginUsername, validateLoginPassword } from '../utils/validation';
+import { validateEmail, validateLoginPassword } from '../utils/validation';
 import { useAuth } from '../hooks/useAuth';
-import { getErrorMessage } from '../utils/errorHandler';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, loading, error: authError } = useAuth();
-  const [username, setUsername] = useState('');
+  const { login, loading, error } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({ username: '', password: '' });
-  const [apiError, setApiError] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setApiError('');
 
-    const usernameError = validateLoginUsername(username);
+    const emailError = validateEmail(email);
     const passwordError = validateLoginPassword(password);
 
     const newErrors = {
-      username: usernameError,
+      email: emailError,
       password: passwordError,
     };
 
     setErrors(newErrors);
 
-    if (!usernameError && !passwordError) {
+    if (!emailError && !passwordError) {
       try {
-        await login(username, password);
+        await login(email, password);
         navigate('/dashboard');
       } catch (err) {
-        // Display the exact backend error message
-        setApiError(getErrorMessage(err));
+        // Error from auth context will be shown
       }
     }
   };
@@ -48,20 +44,20 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Username
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Email
             </label>
             <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className={`w-full px-3 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                errors.username ? 'border-red-500' : 'border-gray-300'
+                errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="Enter your username"
+              placeholder="Enter your email"
             />
-            {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
 
           <PasswordInput
@@ -73,9 +69,9 @@ export default function Login() {
             error={errors.password}
           />
 
-          {apiError && (
+          {error && !errors.email && !errors.password && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {apiError}
+              {error}
             </div>
           )}
 
