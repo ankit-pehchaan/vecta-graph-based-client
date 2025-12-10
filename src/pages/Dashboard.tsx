@@ -6,6 +6,7 @@ import ChatCanvas from '../components/ChatCanvas';
 import ProfilePanel from '../components/ProfilePanel';
 import IntelligenceSummary from '../components/IntelligenceSummary';
 import SuggestedNextSteps from '../components/SuggestedNextSteps';
+import { getCurrentUser } from '../services/api';
 import type {
   GreetingMessage,
   AgentResponseMessage,
@@ -18,15 +19,9 @@ import type {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading, getAccessToken, isAuthenticated } = useAuth();
+  const { user, logout, loading: authLoading, getAccessToken } = useAuth();
   const token = getAccessToken();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/login');
-    }
-  }, [authLoading, isAuthenticated, navigate]);
+  const [verifyingAuth, setVerifyingAuth] = useState(true);
 
   // State for WebSocket messages
   const [greeting, setGreeting] = useState<GreetingMessage | null>(null);
@@ -35,11 +30,12 @@ export default function Dashboard() {
   const [intelligenceSummary, setIntelligenceSummary] = useState<IntelligenceSummaryMessage | null>(null);
   const [suggestedNextSteps, setSuggestedNextSteps] = useState<SuggestedNextStepsMessage | null>(null);
   const [error, setError] = useState<ErrorMessage | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // WebSocket connection
-  const { sendMessage, isConnected, isConnecting, error: wsError, disconnect } = useWebSocket({
+  const { sendMessage, isConnected, isConnecting, disconnect } = useWebSocket({
     token,
-    enabled: !!token && !!user, // Only enable when user is authenticated
+    enabled: !!token && !!user && !verifyingAuth, // Only enable after auth verification
     handlers: {
       onGreeting: (msg) => {
         setGreeting(msg);
@@ -62,23 +58,28 @@ export default function Dashboard() {
     },
   });
 
+  // Verify authentication with backend on mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        await getCurrentUser();
+        setVerifyingAuth(false);
+      } catch (error) {
+        // If /me fails (401), redirect to login
+        console.error('Authentication verification failed:', error);
+        navigate('/login', { replace: true });
+      }
+    };
+
+    verifyAuth();
+  }, [navigate]);
+
   // Cleanup WebSocket on unmount or when user logs out
   useEffect(() => {
     return () => {
       disconnect();
     };
   }, [disconnect]);
-
-  const handleLogout = async () => {
-    try {
-      // Disconnect WebSocket before logging out
-      disconnect();
-      await logout();
-      navigate('/login');
-    } catch (err) {
-      // Error handling is done in the auth context
-    }
-  };
 
   // Reset agent response when a new one starts (when is_complete is false after a complete)
   useEffect(() => {
@@ -91,7 +92,28 @@ export default function Dashboard() {
     }
   }, [agentResponse]);
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const handleLogout = async () => {
+    try {
+      // Disconnect WebSocket before logging out
+      disconnect();
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      // Error handling is done in the auth context
+    }
+  };
+
+  // Show loading while verifying authentication - AFTER all hooks are called
+  if (verifyingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-gray-600">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex">

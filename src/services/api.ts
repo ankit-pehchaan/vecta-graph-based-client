@@ -174,6 +174,18 @@ export async function logoutUser(): Promise<void> {
   });
 }
 
+export interface CurrentUserResponse {
+  email: string;
+  name: string;
+  account_status: string;
+}
+
+export async function getCurrentUser(): Promise<CurrentUserResponse> {
+  return apiClient<CurrentUserResponse>('/api/v1/auth/me', {
+    method: 'GET',
+  });
+}
+
 // WebSocket message types
 export interface WebSocketMessage {
   type: string;
