@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { registerUser, loginUser, logoutUser, initiateRegistration, verifyOTP } from '../services/api';
+import { registerUser, loginUser, logoutUser, initiateRegistration, verifyOTP, resendOTP } from '../services/api';
 import { getErrorMessage } from '../utils/errorHandler';
 
 interface User {
@@ -14,6 +14,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   initiateRegistration: (name: string, email: string, password: string) => Promise<void>;
   verifyRegistration: (otp: string) => Promise<boolean>;
+  resendOTP: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
@@ -136,6 +137,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendOTPHandler = async (): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await resendOTP();
+      return true;
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
@@ -191,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         initiateRegistration: initiateRegistrationHandler,
         verifyRegistration: verifyRegistrationHandler,
+        resendOTP: resendOTPHandler,
         login,
         logout,
         error,

@@ -14,10 +14,10 @@ export default function Register() {
   const navigate = useNavigate();
   const { initiateRegistration, loading, error } = useAuth();
 
-  const [name, setName] = useState('Test User');
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('Test@1234');
-  const [confirmPassword, setConfirmPassword] = useState('Test@1234');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({
     name: '',
     email: '',

@@ -20,6 +20,18 @@ export interface ErrorDetails {
  */
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    // Check for missing verification token error
+    if (error.data && typeof error.data === 'object') {
+      const errorData = error.data as ErrorDetails;
+      if (errorData.validation_errors && Array.isArray(errorData.validation_errors)) {
+        const verificationTokenError = errorData.validation_errors.find(
+          (err) => err.field === 'verification_token'
+        );
+        if (verificationTokenError) {
+          return 'Session expired. Please register again.';
+        }
+      }
+    }
     return error.message;
   }
   

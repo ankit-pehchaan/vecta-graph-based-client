@@ -143,6 +143,16 @@ export async function verifyOTP(
   });
 }
 
+interface ResendOTPResponse {
+  message: string;
+}
+
+export async function resendOTP(): Promise<ResendOTPResponse> {
+  return apiClient<ResendOTPResponse>('/api/v1/auth/register/resend-otp', {
+    method: 'POST',
+  });
+}
+
 export async function loginUser(
   email: string,
   password: string

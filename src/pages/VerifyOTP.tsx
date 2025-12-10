@@ -6,25 +6,25 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function VerifyOTP() {
   const navigate = useNavigate();
-  const { verifyRegistration, loading, error } = useAuth();
+  const { verifyRegistration, resendOTP, loading, error } = useAuth();
 
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180); // 3 minutes in seconds
+  const [resendSuccess, setResendSuccess] = useState('');
 
   useEffect(() => {
-    if (timeRemaining <= 0) return;
-
     const interval = setInterval(() => {
       setTimeRemaining((prev) => Math.max(0, prev - 1));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeRemaining]);
+  }, []);
 
   const handleVerifyOTP = async (e: FormEvent) => {
     e.preventDefault();
     setOtpError('');
+    setResendSuccess('');
 
     const otpValidationError = validateOTP(otp);
     if (otpValidationError) {
@@ -35,6 +35,20 @@ export default function VerifyOTP() {
     const success = await verifyRegistration(otp);
     if (success) {
       navigate('/dashboard');
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setOtpError('');
+    setResendSuccess('');
+    setOtp(''); // Clear the OTP input
+
+    const success = await resendOTP();
+    if (success) {
+      setResendSuccess('New OTP sent to your email!');
+      setTimeRemaining(180); // Reset OTP timer to 3 minutes
+      // Clear success message after 5 seconds
+      setTimeout(() => setResendSuccess(''), 5000);
     }
   };
 
@@ -76,12 +90,18 @@ export default function VerifyOTP() {
 
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Time remaining:{' '}
+              OTP expires in:{' '}
               <span className={`font-semibold ${timeRemaining < 60 ? 'text-red-500' : 'text-blue-500'}`}>
                 {formatTime(timeRemaining)}
               </span>
             </p>
           </div>
+
+          {resendSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              {resendSuccess}
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -96,6 +116,17 @@ export default function VerifyOTP() {
           >
             {loading ? 'Verifying...' : 'Verify & Create Account'}
           </button>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleResendOTP}
+              disabled={loading || timeRemaining > 0}
+              className="text-sm text-blue-500 hover:text-blue-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400"
+            >
+              {timeRemaining > 0 ? `Resend OTP (${formatTime(timeRemaining)})` : 'Resend OTP'}
+            </button>
+          </div>
 
           <div className="text-center">
             <Link to="/register" className="text-sm text-gray-600 hover:text-gray-800">
