@@ -14,7 +14,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (uses 'vite build' - no lint/type check)
 RUN npm run build
 
 # Stage 2: Production server
