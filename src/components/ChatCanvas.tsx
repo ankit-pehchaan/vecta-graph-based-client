@@ -6,7 +6,6 @@ import type {
   AgentResponseMessage,
   ProfileUpdateMessage,
   IntelligenceSummaryMessage,
-  SuggestedNextStepsMessage,
   ErrorMessage,
 } from '../services/api';
 
@@ -16,6 +15,10 @@ interface Message {
   isUser: boolean;
   timestamp: string;
   isStreaming?: boolean;
+  type?: 'message' | 'profile_update';
+  profileUpdate?: {
+    changes?: Record<string, any>;
+  };
 }
 
 interface ChatCanvasProps {
@@ -23,7 +26,6 @@ interface ChatCanvasProps {
   agentResponse?: AgentResponseMessage | null;
   profileUpdate?: ProfileUpdateMessage | null;
   intelligenceSummary?: IntelligenceSummaryMessage | null;
-  suggestedNextSteps?: SuggestedNextStepsMessage | null;
   error?: ErrorMessage | null;
   onSendMessage: (content: string) => void;
   isConnected: boolean;
@@ -37,7 +39,6 @@ export default function ChatCanvas({
   agentResponse,
   profileUpdate,
   intelligenceSummary,
-  suggestedNextSteps,
   error,
   onSendMessage,
   isConnected,
@@ -130,6 +131,82 @@ export default function ChatCanvas({
     }
   }, [agentResponse]);
 
+  // Handle profile updates
+  useEffect(() => {
+    if (profileUpdate && profileUpdate.changes) {
+      const changes = profileUpdate.changes;
+      const updateMessages: string[] = [];
+
+      if (changes.goals && Array.isArray(changes.goals) && changes.goals.length > 0) {
+        changes.goals.forEach((goal: any) => {
+          const desc = goal.description || 'Financial goal';
+          updateMessages.push(`New goal: ${desc}`);
+        });
+      }
+
+      if (changes.assets && Array.isArray(changes.assets) && changes.assets.length > 0) {
+        changes.assets.forEach((asset: any) => {
+          const desc = asset.description || asset.asset_type?.replace(/_/g, ' ') || 'Asset';
+          const value = asset.value ? ` (${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(asset.value)})` : '';
+          updateMessages.push(`New asset: ${desc}${value}`);
+        });
+      }
+
+      if (changes.liabilities && Array.isArray(changes.liabilities) && changes.liabilities.length > 0) {
+        changes.liabilities.forEach((liability: any) => {
+          const desc = liability.description || liability.liability_type?.replace(/_/g, ' ') || 'Liability';
+          const amount = liability.amount ? ` (${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(liability.amount)})` : '';
+          updateMessages.push(`New liability: ${desc}${amount}`);
+        });
+      }
+
+      if (changes.insurance && Array.isArray(changes.insurance) && changes.insurance.length > 0) {
+        changes.insurance.forEach((insurance: any) => {
+          const type = insurance.insurance_type?.replace(/_/g, ' ') || 'Insurance';
+          updateMessages.push(`New insurance: ${type}${insurance.provider ? ` (${insurance.provider})` : ''}`);
+        });
+      }
+
+      if (changes.cash_balance !== undefined && changes.cash_balance !== null) {
+        updateMessages.push(`Cash balance updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.cash_balance)}`);
+      }
+
+      if (changes.superannuation !== undefined && changes.superannuation !== null) {
+        updateMessages.push(`Superannuation updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.superannuation)}`);
+      }
+
+      if (changes.income !== undefined && changes.income !== null) {
+        updateMessages.push(`Annual income updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.income)}`);
+      }
+
+      if (changes.monthly_income !== undefined && changes.monthly_income !== null) {
+        updateMessages.push(`Monthly income updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.monthly_income)}`);
+      }
+
+      if (changes.expenses !== undefined && changes.expenses !== null) {
+        updateMessages.push(`Monthly expenses updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.expenses)}`);
+      }
+
+      if (changes.risk_tolerance) {
+        updateMessages.push(`Risk tolerance: ${changes.risk_tolerance}`);
+      }
+
+      if (updateMessages.length > 0) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `profile-update-${Date.now()}`,
+            content: updateMessages.join('\n'),
+            isUser: false,
+            timestamp: profileUpdate.timestamp || new Date().toISOString(),
+            type: 'profile_update',
+            profileUpdate: { changes },
+          },
+        ]);
+      }
+    }
+  }, [profileUpdate]);
+
   // Handle errors
   useEffect(() => {
     if (error) {
@@ -208,15 +285,41 @@ export default function ChatCanvas({
             Connecting to your financial adviser...
           </div>
         )}
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            content={message.content}
-            isUser={message.isUser}
-            timestamp={message.timestamp}
-            isStreaming={message.isStreaming}
-          />
-        ))}
+        {messages.map((message) => {
+          if (message.type === 'profile_update') {
+            return (
+              <div key={message.id} className="flex justify-center mb-4">
+                <div className="max-w-[80%] bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-green-900 mb-1">Profile Updated</p>
+                      <div className="text-sm text-green-800 whitespace-pre-wrap">
+                        {message.content.split('\n').map((line, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <span className="text-green-600">•</span>
+                            <span>{line}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <ChatMessage
+              key={message.id}
+              content={message.content}
+              isUser={message.isUser}
+              timestamp={message.timestamp}
+              isStreaming={message.isStreaming}
+            />
+          );
+        })}
         {isAgentThinking && (
           <div className="flex justify-start mb-4">
             <div className="max-w-[80%]">
@@ -241,4 +344,3 @@ export default function ChatCanvas({
     </div>
   );
 }
-
