@@ -11,6 +11,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
+  initializing: boolean;
   register: (email: string, password: string, name: string) => Promise<void>;
   initiateRegistration: (name: string, email: string, password: string) => Promise<void>;
   verifyRegistration: (otp: string) => Promise<boolean>;
@@ -25,7 +26,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start with true to check localStorage
+  const [loading, setLoading] = useState(false); // For action loading states
+  const [initializing, setInitializing] = useState(true); // For initial session check
   const [error, setError] = useState<string | null>(null);
 
   // Restore user session from localStorage on mount
@@ -65,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('user_name');
         localStorage.removeItem('user_email');
       } finally {
-        setLoading(false);
+        setInitializing(false);
       }
     };
 
@@ -204,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         loading,
+        initializing,
         register,
         initiateRegistration: initiateRegistrationHandler,
         verifyRegistration: verifyRegistrationHandler,
