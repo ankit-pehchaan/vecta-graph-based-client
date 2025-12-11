@@ -5,14 +5,11 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import ChatCanvas from '../components/ChatCanvas';
 import ProfilePanel from '../components/ProfilePanel';
 import IntelligenceSummary from '../components/IntelligenceSummary';
-import SuggestedNextSteps from '../components/SuggestedNextSteps';
 import { getCurrentUser } from '../services/api';
 import type {
   GreetingMessage,
   AgentResponseMessage,
-  ProfileUpdateMessage,
   IntelligenceSummaryMessage,
-  SuggestedNextStepsMessage,
   ErrorMessage,
   FinancialProfile,
 } from '../services/api';
@@ -28,7 +25,6 @@ export default function Dashboard() {
   const [agentResponse, setAgentResponse] = useState<AgentResponseMessage | null>(null);
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [intelligenceSummary, setIntelligenceSummary] = useState<IntelligenceSummaryMessage | null>(null);
-  const [suggestedNextSteps, setSuggestedNextSteps] = useState<SuggestedNextStepsMessage | null>(null);
   const [error, setError] = useState<ErrorMessage | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -48,9 +44,6 @@ export default function Dashboard() {
       },
       onIntelligenceSummary: (msg) => {
         setIntelligenceSummary(msg);
-      },
-      onSuggestedNextSteps: (msg) => {
-        setSuggestedNextSteps(msg);
       },
       onError: (msg) => {
         setError(msg);
@@ -140,6 +133,7 @@ export default function Dashboard() {
           </a>
           <a
             href="#"
+            onClick={(e) => { e.preventDefault(); navigate('/financial-profile'); }}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +185,6 @@ export default function Dashboard() {
               agentResponse={agentResponse}
               profileUpdate={profile ? { type: 'profile_update', profile } : null}
               intelligenceSummary={intelligenceSummary}
-              suggestedNextSteps={suggestedNextSteps}
               error={error}
               onSendMessage={sendMessage}
               isConnected={isConnected}
@@ -207,7 +200,6 @@ export default function Dashboard() {
               <div className="p-4 space-y-4">
                 <ProfilePanel profile={profile} />
                 <IntelligenceSummary summary={intelligenceSummary} />
-                <SuggestedNextSteps nextSteps={suggestedNextSteps} />
               </div>
             </aside>
           )}
@@ -216,3 +208,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

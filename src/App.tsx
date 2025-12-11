@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import Dashboard from './pages/Dashboard';
+import FinancialProfile from './pages/FinancialProfile';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function AppRoutes() {
@@ -37,6 +38,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/financial-profile"
+        element={
+          <ProtectedRoute>
+            <FinancialProfile />
           </ProtectedRoute>
         }
       />

@@ -212,14 +212,10 @@ export interface ProfileUpdateMessage extends WebSocketMessage {
 
 export interface IntelligenceSummaryMessage extends WebSocketMessage {
   type: 'intelligence_summary';
-  summary: string;
-  insights: string[];
-}
-
-export interface SuggestedNextStepsMessage extends WebSocketMessage {
-  type: 'suggested_next_steps';
-  steps: string[];
-  priority?: string;
+  content: string;  // Chunk of content when streaming
+  is_complete: boolean;  // True when this is the final chunk
+  summary?: string;  // Full summary (for non-streaming/final)
+  insights?: string[];
 }
 
 export interface ErrorMessage extends WebSocketMessage {
@@ -235,7 +231,7 @@ export interface UserMessage extends WebSocketMessage {
 
 // Financial Profile types
 export interface Goal {
-  description: string;
+  description?: string;
   amount?: number;
   timeline_years?: number;
   priority?: string;
@@ -244,28 +240,31 @@ export interface Goal {
 }
 
 export interface Asset {
-  asset_type: string;
-  description: string;
+  asset_type?: string; // australian_shares, managed_funds, family_home, investment_property, superannuation, savings, term_deposits, bonds, cryptocurrency, other
+  description?: string;
   value?: number;
   institution?: string;
+  account_number?: string;
   created_at?: string;
 }
 
 export interface Liability {
-  liability_type: string;
-  description: string;
-  amount?: number;
+  liability_type?: string; // home_loan, car_loan, personal_loan, credit_card, investment_loan, other
+  description?: string;
+  amount?: number; // Outstanding balance
   monthly_payment?: number;
   interest_rate?: number;
   institution?: string;
+  account_number?: string;
   created_at?: string;
 }
 
 export interface Insurance {
-  insurance_type: string;
+  insurance_type?: string; // life, health, income_protection, TPD, trauma, home_insurance, car_insurance, other
   provider?: string;
   coverage_amount?: number;
   monthly_premium?: number;
+  policy_number?: string;
   created_at?: string;
 }
 
@@ -274,6 +273,8 @@ export interface FinancialProfile {
   goals: Goal[];
   assets: Asset[];
   liabilities: Liability[];
+  cash_balance?: number; // Total cash in bank accounts/savings
+  superannuation?: number; // Total superannuation balance
   income?: number;
   monthly_income?: number;
   expenses?: number;

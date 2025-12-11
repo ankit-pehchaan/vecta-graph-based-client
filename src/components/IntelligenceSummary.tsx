@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import type { IntelligenceSummaryMessage } from '../services/api';
 
 interface IntelligenceSummaryProps {
@@ -5,7 +6,38 @@ interface IntelligenceSummaryProps {
 }
 
 export default function IntelligenceSummary({ summary }: IntelligenceSummaryProps) {
-  if (!summary) {
+  const [streamingContent, setStreamingContent] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const streamIdRef = useRef<string | null>(null);
+
+  // Handle streaming intelligence summary
+  useEffect(() => {
+    if (!summary) return;
+
+    // Generate a unique stream ID based on timestamp
+    const currentStreamId = summary.timestamp || Date.now().toString();
+
+    if (summary.is_complete) {
+      // Stream complete
+      setIsStreaming(false);
+      streamIdRef.current = null;
+    } else if (summary.content) {
+      // Check if this is a new stream
+      if (streamIdRef.current === null) {
+        // New stream - reset content
+        streamIdRef.current = currentStreamId;
+        setStreamingContent(summary.content);
+        setIsStreaming(true);
+      } else {
+        // Continue existing stream
+        setStreamingContent((prev) => prev + summary.content);
+      }
+    }
+  }, [summary]);
+
+  const displayContent = streamingContent || '';
+
+  if (!summary && !displayContent) {
     return (
       <div className="rounded-lg border border-gray-200 p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -48,31 +80,28 @@ export default function IntelligenceSummary({ summary }: IntelligenceSummaryProp
           />
         </svg>
         <h3 className="text-sm font-semibold text-gray-900">Intelligence Summary</h3>
+        {isStreaming && (
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full animate-pulse">
+            Analyzing...
+          </span>
+        )}
       </div>
 
-      <p className="text-sm text-gray-700 mb-3">{summary.summary}</p>
+      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+        {displayContent}
+        {isStreaming && (
+          <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-0.5" />
+        )}
+      </div>
 
-      {summary.insights && summary.insights.length > 0 && (
-        <ul className="space-y-2">
-          {summary.insights.map((insight, index) => (
-            <li key={index} className="text-sm text-gray-600 flex items-start gap-2">
-              <span className="text-blue-500 mt-1">•</span>
-              <span>{insight}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {summary.timestamp && (
+      {!isStreaming && summary?.timestamp && (
         <p className="text-xs text-gray-400 mt-3">
-          Generated: {new Date(summary.timestamp).toLocaleDateString('en-US', {
-            month: '2-digit',
-            day: '2-digit',
-            year: 'numeric',
+          Updated: {new Date(summary.timestamp).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
           })}
         </p>
       )}
     </div>
   );
 }
-

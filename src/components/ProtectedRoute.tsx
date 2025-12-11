@@ -6,10 +6,10 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, initializing } = useAuth();
 
-  // Show loading state while checking authentication
-  if (loading) {
+  // Show loading state while checking authentication on initial load
+  if (initializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

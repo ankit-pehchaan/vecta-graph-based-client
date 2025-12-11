@@ -6,7 +6,6 @@ import {
   type AgentResponseMessage,
   type ProfileUpdateMessage,
   type IntelligenceSummaryMessage,
-  type SuggestedNextStepsMessage,
   type ErrorMessage,
   type UserMessage,
   type FinancialProfile,
@@ -17,7 +16,6 @@ export type MessageHandler = {
   onAgentResponse?: (message: AgentResponseMessage) => void;
   onProfileUpdate?: (message: ProfileUpdateMessage) => void;
   onIntelligenceSummary?: (message: IntelligenceSummaryMessage) => void;
-  onSuggestedNextSteps?: (message: SuggestedNextStepsMessage) => void;
   onError?: (message: ErrorMessage) => void;
 };
 
@@ -55,6 +53,36 @@ export function useWebSocket(
   const maxReconnectAttempts = 5;
   const baseReconnectDelay = 1000; // 1 second
 
+  // Use ref for handlers to avoid stale closures - MUST be defined before handleMessage
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
+
+  // handleMessage MUST be defined before connect
+  const handleMessage = useCallback((message: WebSocketMessage) => {
+    const currentHandlers = handlersRef.current;
+    switch (message.type) {
+      case 'greeting':
+        currentHandlers?.onGreeting?.(message as GreetingMessage);
+        break;
+      case 'agent_response':
+        currentHandlers?.onAgentResponse?.(message as AgentResponseMessage);
+        break;
+      case 'profile_update':
+        currentHandlers?.onProfileUpdate?.(message as ProfileUpdateMessage);
+        break;
+      case 'intelligence_summary':
+        currentHandlers?.onIntelligenceSummary?.(message as IntelligenceSummaryMessage);
+        break;
+      case 'error':
+        currentHandlers?.onError?.(message as ErrorMessage);
+        break;
+      default:
+        console.warn('Unknown message type:', message.type);
+    }
+  }, []);
+
   const connect = useCallback(() => {
     if (!token || !enabled) {
       return;
@@ -62,6 +90,11 @@ export function useWebSocket(
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return; // Already connected
+    }
+
+    // Also check if connecting
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return; // Already connecting
     }
 
     setIsConnecting(true);
@@ -86,6 +119,7 @@ export function useWebSocket(
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('[WebSocket] Message received:', message.type, message);
           handleMessage(message);
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
@@ -118,7 +152,7 @@ export function useWebSocket(
           reconnectAttemptsRef.current++;
           
           reconnectTimeoutRef.current = window.setTimeout(() => {
-            if (enabled && token) {
+            if (enabled && token && !isManualDisconnectRef.current) {
               connect();
             }
           }, delay);
@@ -133,32 +167,7 @@ export function useWebSocket(
       setError('Failed to create WebSocket connection');
       setIsConnecting(false);
     }
-  }, [token, enabled, onConnect, onDisconnect, onError]);
-
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    switch (message.type) {
-      case 'greeting':
-        handlers?.onGreeting?.(message as GreetingMessage);
-        break;
-      case 'agent_response':
-        handlers?.onAgentResponse?.(message as AgentResponseMessage);
-        break;
-      case 'profile_update':
-        handlers?.onProfileUpdate?.(message as ProfileUpdateMessage);
-        break;
-      case 'intelligence_summary':
-        handlers?.onIntelligenceSummary?.(message as IntelligenceSummaryMessage);
-        break;
-      case 'suggested_next_steps':
-        handlers?.onSuggestedNextSteps?.(message as SuggestedNextStepsMessage);
-        break;
-      case 'error':
-        handlers?.onError?.(message as ErrorMessage);
-        break;
-      default:
-        console.warn('Unknown message type:', message.type);
-    }
-  }, [handlers]);
+  }, [token, enabled, onConnect, onDisconnect, onError, handleMessage]);
 
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -232,4 +241,3 @@ export function useWebSocket(
     disconnect,
   };
 }
-
