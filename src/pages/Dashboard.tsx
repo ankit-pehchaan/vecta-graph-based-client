@@ -208,7 +208,4 @@ export default function Dashboard() {
     </div>
   );
 }
-function setSuggestedNextSteps(msg: any) {
-  throw new Error('Function not implemented.');
-}
 
