@@ -41,7 +41,7 @@ pipeline {
                 script {
                 withCredentials([file(credentialsId: 'vectafe', variable: 'ENV_FILE')])  {
                     sh """
-                        docker build -t ${DOCKER_IMAGE}
+                        docker build -t ${DOCKER_IMAGE} \
                         --secret id=envfile,src=${ENV_FILE} \
                         .
                     """
