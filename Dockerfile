@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage build for production
 
 # Stage 1: Build the application
@@ -14,8 +15,13 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application (uses 'vite build' - no lint/type check)
-RUN npm run build
+# Build the application with secrets (uses 'vite build' - no lint/type check)
+# Env vars from secret file are loaded at build time for Vite to inline
+RUN --mount=type=secret,id=envfile \
+    if [ -f /run/secrets/envfile ]; then \
+        export $(cat /run/secrets/envfile | grep -v '^#' | xargs); \
+    fi && \
+    npm run build
 
 # Stage 2: Production server
 FROM nginx:alpine
