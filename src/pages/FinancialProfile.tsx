@@ -9,8 +9,7 @@ import type {
 
 export default function FinancialProfile() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading, getAccessToken, isAuthenticated } = useAuth();
-  const token = getAccessToken();
+  const { user, logout, loading: authLoading, isAuthenticated } = useAuth();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -30,8 +29,7 @@ export default function FinancialProfile() {
 
   // WebSocket connection to get profile updates
   const { isConnected, isConnecting, disconnect } = useWebSocket({
-    token,
-    enabled: !!token && !!user,
+    enabled: !!user,
     handlers,
   });
 

@@ -174,6 +174,18 @@ export async function logoutUser(): Promise<void> {
   });
 }
 
+// Google OAuth
+interface GoogleAuthUrlResponse {
+  auth_url: string;
+  state: string;
+}
+
+export async function getGoogleAuthUrl(): Promise<GoogleAuthUrlResponse> {
+  return apiClient<GoogleAuthUrlResponse>('/api/v1/auth/google/login', {
+    method: 'GET',
+  });
+}
+
 export interface CurrentUserResponse {
   email: string;
   name: string;
@@ -285,21 +297,10 @@ export interface FinancialProfile {
   created_at?: string;
 }
 
-// WebSocket connection helper
-export function createWebSocketUrl(
-  path: string, 
-  accessToken: string | null, 
-  refreshToken: string | null
-): string {
+// WebSocket connection helper - cookies are sent automatically
+export function createWebSocketUrl(path: string): string {
   const baseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
-  const url = new URL(path, baseUrl);
-  if (accessToken) {
-    url.searchParams.set('access_token', accessToken);
-  }
-  if (refreshToken) {
-    url.searchParams.set('refresh_token', refreshToken);
-  }
-  return url.toString();
+  return `${baseUrl}${path}`;
 }
 
 export { ApiError };

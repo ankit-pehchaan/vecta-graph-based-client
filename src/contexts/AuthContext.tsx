@@ -18,9 +18,8 @@ interface AuthContextType {
   resendOTP: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  handleGoogleCallback: () => Promise<void>;
   error: string | null;
-  getAccessToken: () => string | null;
-  getRefreshToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,40 +30,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initializing, setInitializing] = useState(true); // For initial session check
   const [error, setError] = useState<string | null>(null);
 
-  // Restore user session from localStorage on mount
+  // Restore user session on mount by checking with backend
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-          // Token exists, try to decode it to get email
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            try {
-              const payload = JSON.parse(atob(tokenParts[1]));
-              const email = payload.sub;
-              if (email) {
-                // Get stored name or use email as fallback
-                const storedName = localStorage.getItem('user_name');
-                const storedEmail = localStorage.getItem('user_email');
-                setUser({
-                  email: storedEmail || email,
-                  name: storedName || email,
-                });
-              }
-            } catch (e) {
-              // Invalid token, clear it
-              localStorage.removeItem('access_token');
-              localStorage.removeItem('refresh_token');
-              localStorage.removeItem('user_name');
-              localStorage.removeItem('user_email');
-            }
-          }
+        // Simply call /me endpoint - backend will check cookies
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const userData = data.data;
+          setUser({
+            email: userData.email,
+            name: userData.name,
+          });
         }
       } catch (err) {
         console.error('Error restoring session:', err);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        // Clear user info from localStorage
         localStorage.removeItem('user_name');
         localStorage.removeItem('user_email');
       } finally {
@@ -80,9 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const response = await registerUser(email, password, name);
-      // Store tokens and user info in localStorage
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Store user info in localStorage (tokens are in cookies)
       localStorage.setItem('user_name', response.name);
       localStorage.setItem('user_email', response.email);
       setUser({
@@ -121,9 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const response = await verifyOTP(otp);
-      // Store tokens and user info in localStorage
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Store user info in localStorage (tokens are in cookies)
       localStorage.setItem('user_name', response.name);
       localStorage.setItem('user_email', response.email);
       setUser({
@@ -160,9 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const response = await loginUser(email, password);
-      // Store tokens and user info in localStorage
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Store user info in localStorage (tokens are in cookies)
       localStorage.setItem('user_name', response.name);
       localStorage.setItem('user_email', response.email);
       setUser({
@@ -183,9 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await logoutUser();
-      // Clear tokens and user info from localStorage
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      // Clear user info from localStorage (cookies are cleared by backend)
       localStorage.removeItem('user_name');
       localStorage.removeItem('user_email');
       setUser(null);
@@ -197,12 +175,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getAccessToken = () => {
-    return localStorage.getItem('access_token');
-  };
+  const handleGoogleCallback = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // After Google OAuth, the backend sets cookies automatically
+      // We need to fetch the current user to get their info
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
-  const getRefreshToken = () => {
-    return localStorage.getItem('refresh_token');
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const data = await response.json();
+      const userData = data.data;
+
+      // Store user info in localStorage (tokens are in cookies)
+      localStorage.setItem('user_name', userData.name);
+      localStorage.setItem('user_email', userData.email);
+      
+      setUser({
+        email: userData.email,
+        name: userData.name,
+      });
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -218,9 +223,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resendOTP: resendOTPHandler,
         login,
         logout,
+        handleGoogleCallback,
         error,
-        getAccessToken,
-        getRefreshToken,
       }}
     >
       {children}
