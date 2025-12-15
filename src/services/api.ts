@@ -286,11 +286,18 @@ export interface FinancialProfile {
 }
 
 // WebSocket connection helper
-export function createWebSocketUrl(path: string, token: string | null): string {
+export function createWebSocketUrl(
+  path: string, 
+  accessToken: string | null, 
+  refreshToken: string | null
+): string {
   const baseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
   const url = new URL(path, baseUrl);
-  if (token) {
-    url.searchParams.set('token', token);
+  if (accessToken) {
+    url.searchParams.set('access_token', accessToken);
+  }
+  if (refreshToken) {
+    url.searchParams.set('refresh_token', refreshToken);
   }
   return url.toString();
 }

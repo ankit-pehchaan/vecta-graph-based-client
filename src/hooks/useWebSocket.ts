@@ -21,6 +21,7 @@ export type MessageHandler = {
 
 interface UseWebSocketOptions {
   token: string | null;
+  refreshToken: string | null;
   enabled?: boolean;
   handlers?: MessageHandler;
   onConnect?: () => void;
@@ -40,7 +41,7 @@ interface UseWebSocketReturn {
 export function useWebSocket(
   options: UseWebSocketOptions
 ): UseWebSocketReturn {
-  const { token, enabled = true, handlers, onConnect, onDisconnect, onError } = options;
+  const { token, refreshToken, enabled = true, handlers, onConnect, onDisconnect, onError } = options;
   
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -84,7 +85,7 @@ export function useWebSocket(
   }, []);
 
   const connect = useCallback(() => {
-    if (!token || !enabled) {
+    if (!token || !refreshToken || !enabled) {
       return;
     }
 
@@ -104,7 +105,7 @@ export function useWebSocket(
       // Reset manual disconnect flag when attempting new connection
       isManualDisconnectRef.current = false;
       
-      const url = createWebSocketUrl('/api/v1/advice/ws', token);
+      const url = createWebSocketUrl('/api/v1/advice/ws', token, refreshToken);
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -152,7 +153,7 @@ export function useWebSocket(
           reconnectAttemptsRef.current++;
           
           reconnectTimeoutRef.current = window.setTimeout(() => {
-            if (enabled && token && !isManualDisconnectRef.current) {
+            if (enabled && token && refreshToken && !isManualDisconnectRef.current) {
               connect();
             }
           }, delay);
@@ -167,7 +168,7 @@ export function useWebSocket(
       setError('Failed to create WebSocket connection');
       setIsConnecting(false);
     }
-  }, [token, enabled, onConnect, onDisconnect, onError, handleMessage]);
+  }, [token, refreshToken, enabled, onConnect, onDisconnect, onError, handleMessage]);
 
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -220,7 +221,7 @@ export function useWebSocket(
   }, [disconnect, connect]);
 
   useEffect(() => {
-    if (enabled && token) {
+    if (enabled && token && refreshToken) {
       connect();
     } else {
       // Disconnect if disabled or no token
@@ -230,7 +231,7 @@ export function useWebSocket(
     return () => {
       disconnect();
     };
-  }, [enabled, token]); // Removed connect/disconnect from deps to avoid infinite loops
+  }, [enabled, token, refreshToken]); // Removed connect/disconnect from deps to avoid infinite loops
 
   return {
     sendMessage,

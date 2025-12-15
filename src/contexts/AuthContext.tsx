@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   error: string | null;
   getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -200,6 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('access_token');
   };
 
+  const getRefreshToken = () => {
+    return localStorage.getItem('refresh_token');
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -215,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         error,
         getAccessToken,
+        getRefreshToken,
       }}
     >
       {children}

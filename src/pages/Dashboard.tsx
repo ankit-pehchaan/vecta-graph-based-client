@@ -16,8 +16,9 @@ import type {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading, getAccessToken } = useAuth();
+  const { user, logout, loading: authLoading, getAccessToken, getRefreshToken } = useAuth();
   const token = getAccessToken();
+  const refreshToken = getRefreshToken();
   const [verifyingAuth, setVerifyingAuth] = useState(true);
 
   // State for WebSocket messages
@@ -31,7 +32,8 @@ export default function Dashboard() {
   // WebSocket connection
   const { sendMessage, isConnected, isConnecting, disconnect } = useWebSocket({
     token,
-    enabled: !!token && !!user && !verifyingAuth, // Only enable after auth verification
+    refreshToken,
+    enabled: !!token && !!refreshToken && !!user && !verifyingAuth, // Only enable after auth verification
     handlers: {
       onGreeting: (msg) => {
         setGreeting(msg);
