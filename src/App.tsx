@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
+import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import FinancialProfile from './pages/FinancialProfile';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -33,6 +34,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route
         path="/dashboard"
         element={

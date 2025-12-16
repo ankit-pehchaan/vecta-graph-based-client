@@ -20,7 +20,6 @@ export type MessageHandler = {
 };
 
 interface UseWebSocketOptions {
-  token: string | null;
   enabled?: boolean;
   handlers?: MessageHandler;
   onConnect?: () => void;
@@ -40,7 +39,7 @@ interface UseWebSocketReturn {
 export function useWebSocket(
   options: UseWebSocketOptions
 ): UseWebSocketReturn {
-  const { token, enabled = true, handlers, onConnect, onDisconnect, onError } = options;
+  const { enabled = true, handlers, onConnect, onDisconnect, onError } = options;
   
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -84,7 +83,7 @@ export function useWebSocket(
   }, []);
 
   const connect = useCallback(() => {
-    if (!token || !enabled) {
+    if (!enabled) {
       return;
     }
 
@@ -104,7 +103,7 @@ export function useWebSocket(
       // Reset manual disconnect flag when attempting new connection
       isManualDisconnectRef.current = false;
       
-      const url = createWebSocketUrl('/api/v1/advice/ws', token);
+      const url = createWebSocketUrl('/api/v1/advice/ws');
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -152,7 +151,7 @@ export function useWebSocket(
           reconnectAttemptsRef.current++;
           
           reconnectTimeoutRef.current = window.setTimeout(() => {
-            if (enabled && token && !isManualDisconnectRef.current) {
+            if (enabled && !isManualDisconnectRef.current) {
               connect();
             }
           }, delay);
@@ -167,7 +166,7 @@ export function useWebSocket(
       setError('Failed to create WebSocket connection');
       setIsConnecting(false);
     }
-  }, [token, enabled, onConnect, onDisconnect, onError, handleMessage]);
+  }, [enabled, onConnect, onDisconnect, onError, handleMessage]);
 
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -220,7 +219,7 @@ export function useWebSocket(
   }, [disconnect, connect]);
 
   useEffect(() => {
-    if (enabled && token) {
+    if (enabled) {
       connect();
     } else {
       // Disconnect if disabled or no token
@@ -230,7 +229,7 @@ export function useWebSocket(
     return () => {
       disconnect();
     };
-  }, [enabled, token]); // Removed connect/disconnect from deps to avoid infinite loops
+  }, [enabled]); // Removed connect/disconnect from deps to avoid infinite loops
 
   return {
     sendMessage,

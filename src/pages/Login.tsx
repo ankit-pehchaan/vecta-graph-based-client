@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import PasswordInput from '../components/PasswordInput';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 import { validateEmail, validateLoginPassword } from '../utils/validation';
 import { useAuth } from '../hooks/useAuth';
 
@@ -83,6 +84,17 @@ export default function Login() {
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-gray-50 text-gray-500 font-medium">OR</span>
+          </div>
+        </div>
+
+        <GoogleLoginButton mode="login" />
 
         <div className="text-center mt-5">
           <span className="text-sm text-gray-600">Don't have an account? </span>

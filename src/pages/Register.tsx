@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import PasswordInput from '../components/PasswordInput';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 import {
   validatePassword,
   validateConfirmPassword,
@@ -75,9 +76,9 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="max-w-md w-full p-8 bg-gray-50 rounded-3xl shadow-xl">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
+      <div className="max-w-md w-full py-6 px-8 bg-gray-50 rounded-3xl shadow-xl">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -87,15 +88,15 @@ export default function Register() {
               />
             </svg>
           </div>
-          <span className="text-2xl font-bold text-blue-500">Vecta</span>
+          <span className="text-xl font-bold text-blue-500">Vecta</span>
         </div>
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Create Your Vecta Account</h1>
-          <p className="text-sm text-gray-500">Join Vecta to manage your finances securely.</p>
+        <div className="text-center mb-5">
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Create Your Account</h1>
+          <p className="text-xs text-gray-500">Join Vecta to manage your finances securely.</p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label htmlFor="name" className="block text-xs font-semibold text-gray-700 mb-1">
               Name
             </label>
             <input
@@ -103,16 +104,16 @@ export default function Register() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`w-full px-3 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+              className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
                 errors.name ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter your name"
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-500 text-xs mt-0.5">{errors.name}</p>}
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
               Email
             </label>
             <input
@@ -120,12 +121,12 @@ export default function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-3 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+              className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
                 errors.email ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter your email"
             />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+            {errors.email && <p className="text-red-500 text-xs mt-0.5">{errors.email}</p>}
           </div>
 
           <PasswordInput
@@ -147,7 +148,7 @@ export default function Register() {
           />
 
           {error && !errors.name && !errors.email && !errors.password && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
               {error}
             </div>
           )}
@@ -155,14 +156,25 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors mt-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Sending OTP...' : 'Continue'}
           </button>
         </form>
 
-        <div className="text-center mt-5">
-          <Link to="/login" className="text-sm text-blue-500 hover:text-blue-600 font-medium">
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-3 bg-gray-50 text-gray-500 font-medium">OR</span>
+          </div>
+        </div>
+
+        <GoogleLoginButton mode="register" />
+
+        <div className="text-center mt-4">
+          <Link to="/login" className="text-xs text-blue-500 hover:text-blue-600 font-medium">
             Already have an account? Log in
           </Link>
         </div>
