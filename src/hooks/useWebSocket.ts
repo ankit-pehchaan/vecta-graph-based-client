@@ -8,7 +8,11 @@ import {
   type IntelligenceSummaryMessage,
   type ErrorMessage,
   type UserMessage,
-  type FinancialProfile,
+  type DocumentUploadMessage,
+  type DocumentConfirmMessage,
+  type DocumentProcessingMessage,
+  type DocumentExtractionMessage,
+  type DocumentType,
 } from '../services/api';
 
 export type MessageHandler = {
@@ -17,6 +21,8 @@ export type MessageHandler = {
   onProfileUpdate?: (message: ProfileUpdateMessage) => void;
   onIntelligenceSummary?: (message: IntelligenceSummaryMessage) => void;
   onError?: (message: ErrorMessage) => void;
+  onDocumentProcessing?: (message: DocumentProcessingMessage) => void;
+  onDocumentExtraction?: (message: DocumentExtractionMessage) => void;
 };
 
 interface UseWebSocketOptions {
@@ -29,6 +35,8 @@ interface UseWebSocketOptions {
 
 interface UseWebSocketReturn {
   sendMessage: (content: string) => void;
+  sendDocumentUpload: (s3Url: string, documentType: DocumentType, filename: string) => void;
+  sendDocumentConfirm: (extractionId: string, confirmed: boolean, corrections?: Record<string, unknown>) => void;
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;
@@ -76,6 +84,12 @@ export function useWebSocket(
         break;
       case 'error':
         currentHandlers?.onError?.(message as ErrorMessage);
+        break;
+      case 'document_processing':
+        currentHandlers?.onDocumentProcessing?.(message as DocumentProcessingMessage);
+        break;
+      case 'document_extraction':
+        currentHandlers?.onDocumentExtraction?.(message as DocumentExtractionMessage);
         break;
       default:
         console.warn('Unknown message type:', message.type);
@@ -182,6 +196,38 @@ export function useWebSocket(
     }
   }, []);
 
+  const sendDocumentUpload = useCallback((s3Url: string, documentType: DocumentType, filename: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const message: DocumentUploadMessage = {
+        type: 'document_upload',
+        s3_url: s3Url,
+        document_type: documentType,
+        filename,
+        timestamp: new Date().toISOString(),
+      };
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('WebSocket is not connected. Cannot send document upload.');
+      setError('Not connected. Please wait for connection.');
+    }
+  }, []);
+
+  const sendDocumentConfirm = useCallback((extractionId: string, confirmed: boolean, corrections?: Record<string, unknown>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const message: DocumentConfirmMessage = {
+        type: 'document_confirm',
+        extraction_id: extractionId,
+        confirmed,
+        corrections,
+        timestamp: new Date().toISOString(),
+      };
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('WebSocket is not connected. Cannot send document confirmation.');
+      setError('Not connected. Please wait for connection.');
+    }
+  }, []);
+
   const disconnect = useCallback(() => {
     // Mark as manual disconnect to prevent reconnection
     isManualDisconnectRef.current = true;
@@ -233,6 +279,8 @@ export function useWebSocket(
 
   return {
     sendMessage,
+    sendDocumentUpload,
+    sendDocumentConfirm,
     isConnected,
     isConnecting,
     error,

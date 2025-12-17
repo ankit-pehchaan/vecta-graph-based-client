@@ -241,6 +241,75 @@ export interface UserMessage extends WebSocketMessage {
   content: string;
 }
 
+// Document Upload Types
+export type DocumentType = 'bank_statement' | 'tax_return' | 'investment_statement' | 'payslip';
+
+export interface DocumentUploadMessage extends WebSocketMessage {
+  type: 'document_upload';
+  s3_url: string;
+  document_type: DocumentType;
+  filename: string;
+}
+
+export interface DocumentConfirmMessage extends WebSocketMessage {
+  type: 'document_confirm';
+  extraction_id: string;
+  confirmed: boolean;
+  corrections?: Record<string, unknown>;
+}
+
+export interface DocumentProcessingMessage extends WebSocketMessage {
+  type: 'document_processing';
+  status: 'downloading' | 'parsing' | 'analyzing' | 'complete' | 'error';
+  message: string;
+}
+
+export interface ExtractedData {
+  goals: Array<{
+    description: string;
+    amount?: number;
+    timeline_years?: number;
+    priority?: 'High' | 'Medium' | 'Low';
+  }>;
+  assets: Array<{
+    asset_type: string;
+    description: string;
+    value?: number;
+    institution?: string;
+  }>;
+  liabilities: Array<{
+    liability_type: string;
+    description: string;
+    amount?: number;
+    monthly_payment?: number;
+    interest_rate?: number;
+  }>;
+  insurance: Array<{
+    insurance_type: string;
+    provider?: string;
+    coverage_amount?: number;
+  }>;
+  superannuation: Array<{
+    fund_name: string;
+    balance?: number;
+    employer_contribution_rate?: number;
+    personal_contribution_rate?: number;
+    investment_option?: string;
+  }>;
+  income?: number;
+  monthly_income?: number;
+  expenses?: number;
+}
+
+export interface DocumentExtractionMessage extends WebSocketMessage {
+  type: 'document_extraction';
+  extraction_id: string;
+  summary: string;
+  extracted_data: ExtractedData;
+  document_type: string;
+  requires_confirmation: boolean;
+}
+
 // Financial Profile types
 export interface Goal {
   description?: string;

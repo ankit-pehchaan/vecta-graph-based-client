@@ -7,6 +7,10 @@ import type {
   ProfileUpdateMessage,
   IntelligenceSummaryMessage,
   ErrorMessage,
+  DocumentProcessingMessage,
+  DocumentExtractionMessage,
+  ExtractedData,
+  DocumentType,
 } from '../services/api';
 
 interface Message {
@@ -15,9 +19,14 @@ interface Message {
   isUser: boolean;
   timestamp: string;
   isStreaming?: boolean;
-  type?: 'message' | 'profile_update';
+  type?: 'message' | 'profile_update' | 'document_processing' | 'document_extraction';
   profileUpdate?: {
     changes?: Record<string, any>;
+  };
+  documentExtraction?: {
+    extractionId: string;
+    extractedData: ExtractedData;
+    documentType: string;
   };
 }
 
@@ -27,7 +36,11 @@ interface ChatCanvasProps {
   profileUpdate?: ProfileUpdateMessage | null;
   intelligenceSummary?: IntelligenceSummaryMessage | null;
   error?: ErrorMessage | null;
+  documentProcessing?: DocumentProcessingMessage | null;
+  documentExtraction?: DocumentExtractionMessage | null;
   onSendMessage: (content: string) => void;
+  onDocumentUpload?: (s3Url: string, documentType: DocumentType, filename: string) => void;
+  onDocumentConfirm?: (extractionId: string, confirmed: boolean) => void;
   isConnected: boolean;
   isConnecting: boolean;
   sidebarOpen?: boolean;
@@ -40,7 +53,11 @@ export default function ChatCanvas({
   profileUpdate,
   intelligenceSummary,
   error,
+  documentProcessing,
+  documentExtraction,
   onSendMessage,
+  onDocumentUpload,
+  onDocumentConfirm,
   isConnected,
   isConnecting,
   sidebarOpen = false,
@@ -49,6 +66,9 @@ export default function ChatCanvas({
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentStreamingMessage, setCurrentStreamingMessage] = useState<string>('');
   const [isAgentThinking, setIsAgentThinking] = useState(false);
+  const [isProcessingDocument, setIsProcessingDocument] = useState(false);
+  const [documentStatus, setDocumentStatus] = useState<string>('');
+  const [pendingExtractionId, setPendingExtractionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
   const greetingAddedRef = useRef(false);
@@ -222,6 +242,90 @@ export default function ChatCanvas({
     }
   }, [error]);
 
+  // Handle document processing status
+  useEffect(() => {
+    if (documentProcessing) {
+      if (documentProcessing.status === 'error') {
+        setIsProcessingDocument(false);
+        setDocumentStatus('');
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `doc-error-${Date.now()}`,
+            content: `Document processing failed: ${documentProcessing.message}`,
+            isUser: false,
+            timestamp: documentProcessing.timestamp || new Date().toISOString(),
+          },
+        ]);
+      } else if (documentProcessing.status === 'complete') {
+        setIsProcessingDocument(false);
+        setDocumentStatus('');
+      } else {
+        setIsProcessingDocument(true);
+        setDocumentStatus(documentProcessing.message);
+      }
+    }
+  }, [documentProcessing]);
+
+  // Handle document extraction
+  useEffect(() => {
+    if (documentExtraction) {
+      setIsProcessingDocument(false);
+      setDocumentStatus('');
+      setPendingExtractionId(documentExtraction.extraction_id);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `doc-extraction-${Date.now()}`,
+          content: documentExtraction.summary,
+          isUser: false,
+          timestamp: documentExtraction.timestamp || new Date().toISOString(),
+          type: 'document_extraction',
+          documentExtraction: {
+            extractionId: documentExtraction.extraction_id,
+            extractedData: documentExtraction.extracted_data,
+            documentType: documentExtraction.document_type,
+          },
+        },
+      ]);
+    }
+  }, [documentExtraction]);
+
+  const handleDocumentConfirm = (extractionId: string, confirmed: boolean) => {
+    if (onDocumentConfirm) {
+      onDocumentConfirm(extractionId, confirmed);
+      setPendingExtractionId(null);
+
+      // Update the message to show confirmation status
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.documentExtraction?.extractionId === extractionId
+            ? { ...m, content: m.content + (confirmed ? '\n\n*Confirmed and saved to profile*' : '\n\n*Rejected*') }
+            : m
+        )
+      );
+    }
+  };
+
+  const handleDocumentUpload = (s3Url: string, documentType: DocumentType, filename: string) => {
+    if (onDocumentUpload) {
+      // Add user message about the upload
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `user-upload-${Date.now()}`,
+          content: `Uploading document: ${filename}`,
+          isUser: true,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      setIsProcessingDocument(true);
+      setDocumentStatus('Uploading document...');
+      onDocumentUpload(s3Url, documentType, filename);
+    }
+  };
+
   const handleSend = (content: string) => {
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -310,6 +414,46 @@ export default function ChatCanvas({
               </div>
             );
           }
+          if (message.type === 'document_extraction' && message.documentExtraction) {
+            const isPending = pendingExtractionId === message.documentExtraction.extractionId;
+            return (
+              <div key={message.id} className="flex justify-start mb-4">
+                <div className="max-w-[80%]">
+                  <div className="rounded-2xl px-4 py-3 bg-blue-50 text-gray-900 rounded-bl-sm border border-blue-200">
+                    <div className="flex items-start gap-2 mb-2">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-xs font-semibold text-blue-900">Document Analysis</span>
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap mb-3">{message.content}</div>
+                    {isPending && onDocumentConfirm && (
+                      <div className="flex gap-2 pt-2 border-t border-blue-200">
+                        <button
+                          onClick={() => handleDocumentConfirm(message.documentExtraction!.extractionId, true)}
+                          className="flex-1 py-2 px-3 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Looks correct
+                        </button>
+                        <button
+                          onClick={() => handleDocumentConfirm(message.documentExtraction!.extractionId, false)}
+                          className="flex-1 py-2 px-3 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Not right
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
           return (
             <ChatMessage
               key={message.id}
@@ -336,11 +480,30 @@ export default function ChatCanvas({
             </div>
           </div>
         )}
+        {isProcessingDocument && (
+          <div className="flex justify-start mb-4">
+            <div className="max-w-[80%]">
+              <div className="rounded-2xl px-4 py-3 bg-amber-50 text-gray-900 rounded-bl-sm border border-amber-200">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span className="text-sm text-amber-800">{documentStatus || 'Processing document...'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <ChatInput onSend={handleSend} disabled={!isConnected} />
+      <ChatInput
+        onSend={handleSend}
+        onDocumentUpload={onDocumentUpload ? handleDocumentUpload : undefined}
+        disabled={!isConnected}
+      />
     </div>
   );
 }

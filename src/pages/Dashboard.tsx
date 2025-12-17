@@ -12,6 +12,9 @@ import type {
   IntelligenceSummaryMessage,
   ErrorMessage,
   FinancialProfile,
+  DocumentProcessingMessage,
+  DocumentExtractionMessage,
+  DocumentType,
 } from '../services/api';
 
 export default function Dashboard() {
@@ -25,10 +28,12 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [intelligenceSummary, setIntelligenceSummary] = useState<IntelligenceSummaryMessage | null>(null);
   const [error, setError] = useState<ErrorMessage | null>(null);
+  const [documentProcessing, setDocumentProcessing] = useState<DocumentProcessingMessage | null>(null);
+  const [documentExtraction, setDocumentExtraction] = useState<DocumentExtractionMessage | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // WebSocket connection
-  const { sendMessage, isConnected, isConnecting, disconnect } = useWebSocket({
+  const { sendMessage, sendDocumentUpload, sendDocumentConfirm, isConnected, isConnecting, disconnect } = useWebSocket({
     enabled: !!user && !verifyingAuth, // Only enable after auth verification
     handlers: {
       onGreeting: (msg) => {
@@ -46,8 +51,26 @@ export default function Dashboard() {
       onError: (msg) => {
         setError(msg);
       },
+      onDocumentProcessing: (msg) => {
+        setDocumentProcessing(msg);
+      },
+      onDocumentExtraction: (msg) => {
+        setDocumentExtraction(msg);
+      },
     },
   });
+
+  // Document upload handler
+  const handleDocumentUpload = (s3Url: string, documentType: DocumentType, filename: string) => {
+    sendDocumentUpload(s3Url, documentType, filename);
+  };
+
+  // Document confirm handler
+  const handleDocumentConfirm = (extractionId: string, confirmed: boolean) => {
+    sendDocumentConfirm(extractionId, confirmed);
+    // Clear extraction after confirmation
+    setDocumentExtraction(null);
+  };
 
   // Verify authentication with backend on mount
   useEffect(() => {
@@ -184,7 +207,11 @@ export default function Dashboard() {
               profileUpdate={profile ? { type: 'profile_update', profile } : null}
               intelligenceSummary={intelligenceSummary}
               error={error}
+              documentProcessing={documentProcessing}
+              documentExtraction={documentExtraction}
               onSendMessage={sendMessage}
+              onDocumentUpload={handleDocumentUpload}
+              onDocumentConfirm={handleDocumentConfirm}
               isConnected={isConnected}
               isConnecting={isConnecting}
               sidebarOpen={sidebarOpen}

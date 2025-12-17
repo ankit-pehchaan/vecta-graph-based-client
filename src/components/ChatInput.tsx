@@ -1,13 +1,17 @@
 import { useState, FormEvent, KeyboardEvent } from 'react';
+import DocumentUpload from './DocumentUpload';
+import type { DocumentType } from '../services/api';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onDocumentUpload?: (s3Url: string, documentType: DocumentType, filename: string) => void;
   disabled?: boolean;
   placeholder?: string;
 }
 
-export default function ChatInput({ onSend, disabled = false, placeholder = 'Type a message...' }: ChatInputProps) {
+export default function ChatInput({ onSend, onDocumentUpload, disabled = false, placeholder = 'Type a message...' }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -24,9 +28,41 @@ export default function ChatInput({ onSend, disabled = false, placeholder = 'Typ
     }
   };
 
+  const handleDocumentUpload = (s3Url: string, documentType: DocumentType, filename: string) => {
+    if (onDocumentUpload) {
+      onDocumentUpload(s3Url, documentType, filename);
+    }
+    setShowUpload(false);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="border-t border-gray-200 bg-white p-4">
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 relative">
+        {/* Document Upload Popup */}
+        {showUpload && onDocumentUpload && (
+          <DocumentUpload
+            onUpload={handleDocumentUpload}
+            onClose={() => setShowUpload(false)}
+            disabled={disabled}
+          />
+        )}
+
+        {/* Upload Button */}
+        {onDocumentUpload && (
+          <button
+            type="button"
+            onClick={() => setShowUpload(!showUpload)}
+            disabled={disabled}
+            className="flex-shrink-0 rounded-lg border border-gray-300 p-2.5 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Upload document"
+            title="Upload document"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
+        )}
+
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
