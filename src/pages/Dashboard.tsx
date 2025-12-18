@@ -130,9 +130,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="h-screen bg-white flex overflow-hidden">
       {/* Left Sidebar */}
-      <aside className="w-64 border-r border-gray-200 flex flex-col">
+      <aside className="w-64 border-r border-gray-200 flex flex-col flex-shrink-0">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
@@ -198,9 +198,9 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content - Chat Canvas with integrated sidebar */}
-      <main className="flex-1 flex flex-col relative">
-        <div className="flex-1 flex relative">
-          <div className="flex-1" style={{ marginRight: sidebarOpen ? '320px' : '0', transition: 'margin-right 0.3s ease' }}>
+      <main className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="flex-1 flex relative overflow-hidden">
+          <div className="flex-1 h-full overflow-hidden" style={{ marginRight: sidebarOpen ? '320px' : '0', transition: 'margin-right 0.3s ease' }}>
             <ChatCanvas
               greeting={greeting}
               agentResponse={agentResponse}

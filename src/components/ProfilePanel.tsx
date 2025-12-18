@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FinancialProfile, ProfileUpdateMessage, Asset, Liability, Insurance, Goal } from '../services/api';
+import type { FinancialProfile, ProfileUpdateMessage, Asset, Liability, Insurance, Goal, Superannuation } from '../services/api';
 
 interface ProfilePanelProps {
   profile: FinancialProfile | null;
@@ -37,7 +37,8 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
     (sum, liability) => sum + (liability.amount || 0),
     0
   );
-  const netWorth = totalAssets + (localProfile.cash_balance || 0) + (localProfile.superannuation || 0) - totalLiabilities;
+  const totalSuperannuation = localProfile.superannuation?.reduce((sum, super_) => sum + (super_.balance || 0), 0) || 0;
+  const netWorth = totalAssets + (localProfile.cash_balance || 0) + totalSuperannuation - totalLiabilities;
 
   // Calculate profile completion
   const factsCollected = calculateFactsCollected(localProfile);
@@ -120,11 +121,11 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
                 </div>
               )}
 
-              {localProfile.superannuation !== undefined && localProfile.superannuation !== null && (
+              {totalSuperannuation > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 text-sm">Superannuation</span>
                   <span className="font-semibold text-gray-900">
-                    {formatCurrency(localProfile.superannuation)}
+                    {formatCurrency(totalSuperannuation)}
                   </span>
                 </div>
               )}
@@ -324,18 +325,53 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
                 <p className="text-sm text-gray-500">No cash balance recorded yet.</p>
               )}
 
-              {localProfile.superannuation !== undefined && localProfile.superannuation !== null && (
-                <>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg mt-3">
-                    <span className="text-gray-700 text-sm font-medium">Superannuation</span>
-                    <span className="font-semibold text-green-900 text-lg">
-                      {formatCurrency(localProfile.superannuation)}
-                    </span>
+              {localProfile.superannuation && localProfile.superannuation.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Superannuation</h4>
+                  <div className="space-y-2">
+                    {localProfile.superannuation.map((super_, idx) => (
+                      <div key={super_.id || idx} className="p-3 bg-green-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {super_.fund_name || 'Superannuation Fund'}
+                            </p>
+                            {super_.investment_option && (
+                              <p className="text-xs text-gray-500">{super_.investment_option}</p>
+                            )}
+                            <div className="flex gap-3 mt-1">
+                              {super_.employer_contribution_rate !== undefined && super_.employer_contribution_rate !== null && (
+                                <span className="text-xs text-gray-500">
+                                  Employer: {super_.employer_contribution_rate}%
+                                </span>
+                              )}
+                              {super_.personal_contribution_rate !== undefined && super_.personal_contribution_rate !== null && (
+                                <span className="text-xs text-gray-500">
+                                  Personal: {super_.personal_contribution_rate}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {super_.balance !== undefined && super_.balance !== null && (
+                            <span className="font-semibold text-green-900 ml-2">
+                              {formatCurrency(super_.balance)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Total superannuation balance
-                  </p>
-                </>
+                  {totalSuperannuation > 0 && localProfile.superannuation.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-gray-700">Total Superannuation</span>
+                        <span className="font-semibold text-green-900">
+                          {formatCurrency(totalSuperannuation)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -475,7 +511,7 @@ function calculateFactsCollected(profile: FinancialProfile): number {
 
   // Superannuation
   total += 1;
-  if (profile.superannuation !== undefined && profile.superannuation !== null) facts += 1;
+  if (profile.superannuation && profile.superannuation.length > 0) facts += 1;
 
   // Income
   total += 1;
@@ -516,7 +552,7 @@ function calculateProfileCompletion(profile: FinancialProfile): number {
 
   // Superannuation (10 points)
   max += 10;
-  if (profile.superannuation !== undefined && profile.superannuation !== null) score += 10;
+  if (profile.superannuation && profile.superannuation.length > 0) score += 10;
 
   // Income (15 points)
   max += 15;

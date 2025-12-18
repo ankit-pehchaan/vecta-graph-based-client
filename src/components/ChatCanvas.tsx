@@ -339,9 +339,9 @@ export default function ChatCanvas({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="flex-shrink-0 border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-gray-900">AI Agent Chat</h2>
@@ -378,7 +378,7 @@ export default function ChatCanvas({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
         {messages.length === 0 && !isConnecting && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">
             Start a conversation with your financial adviser...

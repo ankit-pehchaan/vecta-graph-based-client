@@ -36,7 +36,7 @@ export default function ChatInput({ onSend, onDocumentUpload, disabled = false, 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
       <div className="flex items-end gap-2 relative">
         {/* Document Upload Popup */}
         {showUpload && onDocumentUpload && (

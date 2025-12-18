@@ -63,8 +63,8 @@ export default function FinancialProfile() {
   const totalAssets = profile?.assets.reduce((sum, asset) => sum + (asset.value || 0), 0) || 0;
   const totalLiabilities = profile?.liabilities.reduce((sum, liability) => sum + (liability.amount || 0), 0) || 0;
   const cashBalance = profile?.cash_balance || 0;
-  const superannuation = profile?.superannuation || 0;
-  const netWorth = totalAssets + cashBalance + superannuation - totalLiabilities;
+  const totalSuperannuation = profile?.superannuation?.reduce((sum, super_) => sum + (super_.balance || 0), 0) || 0;
+  const netWorth = totalAssets + cashBalance + totalSuperannuation - totalLiabilities;
 
   // Group assets by type
   const assetsByType = profile?.assets.reduce((acc, asset) => {
@@ -242,7 +242,7 @@ export default function FinancialProfile() {
               </div>
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <p className="text-gray-600 text-sm mb-1">Superannuation</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(superannuation)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalSuperannuation)}</p>
               </div>
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <p className="text-gray-600 text-sm mb-1">Total Liabilities</p>

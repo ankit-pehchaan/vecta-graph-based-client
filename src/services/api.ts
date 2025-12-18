@@ -349,13 +349,24 @@ export interface Insurance {
   created_at?: string;
 }
 
+export interface Superannuation {
+  id?: number;
+  fund_name?: string;
+  balance?: number;
+  employer_contribution_rate?: number;
+  personal_contribution_rate?: number;
+  investment_option?: string;
+  created_at?: string;
+}
+
 export interface FinancialProfile {
-  email: string;
+  email?: string;
+  username?: string;
   goals: Goal[];
   assets: Asset[];
   liabilities: Liability[];
   cash_balance?: number; // Total cash in bank accounts/savings
-  superannuation?: number; // Total superannuation balance
+  superannuation: Superannuation[]; // Array of superannuation accounts
   income?: number;
   monthly_income?: number;
   expenses?: number;
