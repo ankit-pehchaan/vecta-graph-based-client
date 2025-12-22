@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   content: string;
@@ -7,7 +8,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
-export default function ChatMessage({ content, isUser, timestamp, isStreaming }: ChatMessageProps) {
+export default function ChatMessage({ content, isUser, timestamp }: ChatMessageProps) {
   const formatTime = (ts?: string) => {
     if (!ts) return '';
     try {
@@ -33,6 +34,7 @@ export default function ChatMessage({ content, isUser, timestamp, isStreaming }:
           ) : (
             <div className="text-sm markdown-content">
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                   ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 ml-2">{children}</ul>,
@@ -40,6 +42,18 @@ export default function ChatMessage({ content, isUser, timestamp, isStreaming }:
                   li: ({ children }) => <li className="mb-0.5">{children}</li>,
                   strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
                   em: ({ children }) => <em className="italic">{children}</em>,
+                  table: ({ children }) => (
+                    <div className="my-3 w-full overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                      <table className="w-full text-left text-sm">{children}</table>
+                    </div>
+                  ),
+                  thead: ({ children }) => <thead className="bg-gray-50 text-gray-700">{children}</thead>,
+                  tbody: ({ children }) => <tbody className="divide-y divide-gray-100">{children}</tbody>,
+                  tr: ({ children }) => <tr className="hover:bg-gray-50/60">{children}</tr>,
+                  th: ({ children }) => (
+                    <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide">{children}</th>
+                  ),
+                  td: ({ children }) => <td className="px-3 py-2 align-top">{children}</td>,
                   code: ({ children, className }) => {
                     const isInline = !className || !className.includes('language-');
                     return isInline ? (
@@ -68,9 +82,6 @@ export default function ChatMessage({ content, isUser, timestamp, isStreaming }:
                 {content}
               </ReactMarkdown>
             </div>
-          )}
-          {isStreaming && !isUser && (
-            <span className="inline-block w-2 h-2 bg-gray-400 rounded-full ml-1 animate-pulse" />
           )}
         </div>
         {timestamp && (

@@ -1,4 +1,5 @@
-import { useState, FormEvent, KeyboardEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import DocumentUpload from './DocumentUpload';
 import type { DocumentType } from '../services/api';
 

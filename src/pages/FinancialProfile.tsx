@@ -1,15 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useWebSocket, type MessageHandler } from '../hooks/useWebSocket';
-import type {
-  FinancialProfile as FinancialProfileType,
-  ProfileUpdateMessage,
-} from '../services/api';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { getFinancialProfile } from '../services/api';
+import type { Asset, Liability } from '../services/api';
 
 export default function FinancialProfile() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading, isAuthenticated } = useAuth();
+  const { logout, loading: authLoading, isAuthenticated } = useAuth();
+  const { profile: wsProfile, setProfile } = useWebSocketContext();
+  const [fetching, setFetching] = useState(false);
+  const fetchedRef = useRef(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -18,31 +19,37 @@ export default function FinancialProfile() {
     }
   }, [authLoading, isAuthenticated, navigate]);
 
-  const [profile, setProfile] = useState<FinancialProfileType | null>(null);
-
-  // Memoize handlers to prevent reconnection loops
-  const handlers: MessageHandler = useMemo(() => ({
-    onProfileUpdate: (msg) => {
-      setProfile(msg.profile);
-    },
-  }), []);
-
-  // WebSocket connection to get profile updates
-  const { isConnected, isConnecting, disconnect } = useWebSocket({
-    enabled: !!user,
-    handlers,
-  });
-
-  // Cleanup WebSocket on unmount
+  // Load profile from REST API only if we don't have a cached profile yet
   useEffect(() => {
-    return () => {
-      disconnect();
+    const loadProfile = async () => {
+      // Only fetch if:
+      // 1. We're authenticated
+      // 2. We don't already have a cached profile
+      // 3. We haven't already fetched in this session
+      if (!isAuthenticated || wsProfile !== null || fetchedRef.current) {
+        return;
+      }
+
+      fetchedRef.current = true;
+      setFetching(true);
+
+      try {
+        const profileData = await getFinancialProfile();
+        if (profileData) {
+          setProfile(profileData);
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setFetching(false);
+      }
     };
-  }, [disconnect]);
+
+    loadProfile();
+  }, [isAuthenticated, wsProfile, setProfile]);
 
   const handleLogout = async () => {
     try {
-      disconnect();
       await logout();
       navigate('/login');
     } catch (err) {
@@ -59,6 +66,9 @@ export default function FinancialProfile() {
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  // Use wsProfile (updated in real-time via WS)
+  const profile = wsProfile;
+
   // Calculate totals
   const totalAssets = profile?.assets.reduce((sum, asset) => sum + (asset.value || 0), 0) || 0;
   const totalLiabilities = profile?.liabilities.reduce((sum, liability) => sum + (liability.amount || 0), 0) || 0;
@@ -72,7 +82,7 @@ export default function FinancialProfile() {
     if (!acc[type]) acc[type] = [];
     acc[type].push(asset);
     return acc;
-  }, {} as Record<string, typeof profile.assets>) || {};
+  }, {} as Record<string, Asset[]>) || {};
 
   // Group liabilities by type
   const liabilitiesByType = profile?.liabilities.reduce((acc, liability) => {
@@ -80,69 +90,83 @@ export default function FinancialProfile() {
     if (!acc[type]) acc[type] = [];
     acc[type].push(liability);
     return acc;
-  }, {} as Record<string, typeof profile.liabilities>) || {};
+  }, {} as Record<string, Liability[]>) || {};
 
+  // Render sidebar (shared between states)
+  const renderSidebar = () => (
+    <aside className="w-64 border-r border-gray-200 bg-white flex flex-col min-h-screen">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-lg">V</span>
+          </div>
+          <span className="text-xl font-bold text-gray-900">Vecta</span>
+        </div>
+      </div>
+      <nav className="flex-1 p-4 space-y-2">
+        <a
+          href="#"
+          onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+        <a
+          href="#"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Financial Profile
+        </a>
+      </nav>
+      <div className="p-4 border-t border-gray-200">
+        <button
+          onClick={handleLogout}
+          disabled={authLoading}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+
+  // Show empty state if no profile yet (first-time user or fetching)
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="flex">
-          {/* Sidebar */}
-          <aside className="w-64 border-r border-gray-200 bg-white flex flex-col min-h-screen">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">V</span>
-                </div>
-                <span className="text-xl font-bold text-gray-900">Vecta</span>
-              </div>
-            </div>
-            <nav className="flex-1 p-4 space-y-2">
-              <a
-                href="#"
-                onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                Dashboard
-              </a>
-              <a
-                href="#"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Financial Profile
-              </a>
-            </nav>
-            <div className="p-4 border-t border-gray-200">
-              <button
-                onClick={handleLogout}
-                disabled={authLoading}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Logout
-              </button>
-            </div>
-          </aside>
+          {renderSidebar()}
 
           {/* Main Content */}
           <main className="flex-1 p-8">
             <div className="max-w-6xl mx-auto">
               <h1 className="text-2xl font-bold text-gray-900 mb-6">Financial Profile</h1>
               <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                <p className="text-gray-500">Profile will be built as you chat with your financial adviser.</p>
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  Go to Dashboard
-                </button>
+                {fetching ? (
+                  <>
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mb-4"></div>
+                    <p className="text-gray-500">Loading your profile...</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-500">Profile will be built as you chat with your financial adviser.</p>
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      Go to Dashboard
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </main>
@@ -154,50 +178,7 @@ export default function FinancialProfile() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r border-gray-200 bg-white flex flex-col min-h-screen">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">V</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Vecta</span>
-            </div>
-          </div>
-          <nav className="flex-1 p-4 space-y-2">
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              Dashboard
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Financial Profile
-            </a>
-          </nav>
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={handleLogout}
-              disabled={authLoading}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
-          </div>
-        </aside>
+        {renderSidebar()}
 
         {/* Main Content */}
         <main className="flex-1 p-8 overflow-y-auto">
@@ -311,9 +292,6 @@ export default function FinancialProfile() {
                                 {asset.institution && (
                                   <p className="text-sm text-gray-500 mt-1">{asset.institution}</p>
                                 )}
-                                {asset.account_number && (
-                                  <p className="text-xs text-gray-400 mt-1">Account: {asset.account_number}</p>
-                                )}
                               </div>
                               {asset.value && (
                                 <span className="font-bold text-gray-900 text-lg ml-4">
@@ -363,9 +341,6 @@ export default function FinancialProfile() {
                                 {liability.institution && (
                                   <p className="text-sm text-gray-500 mt-1">{liability.institution}</p>
                                 )}
-                                {liability.account_number && (
-                                  <p className="text-xs text-gray-400 mt-1">Account: {liability.account_number}</p>
-                                )}
                                 <div className="flex gap-4 mt-2 text-sm text-gray-600">
                                   {liability.interest_rate !== undefined && liability.interest_rate !== null && (
                                     <span>Rate: {liability.interest_rate}%</span>
@@ -413,11 +388,8 @@ export default function FinancialProfile() {
                     <div key={idx} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <p className="font-semibold text-gray-900">{formatAssetType(policy.insurance_type)}</p>
+                          <p className="font-semibold text-gray-900">{formatAssetType(policy.insurance_type ?? 'insurance')}</p>
                           {policy.provider && <p className="text-sm text-gray-500 mt-1">{policy.provider}</p>}
-                          {policy.policy_number && (
-                            <p className="text-xs text-gray-400 mt-1">Policy: {policy.policy_number}</p>
-                          )}
                         </div>
                         {policy.coverage_amount && (
                           <span className="font-bold text-gray-900">{formatCurrency(policy.coverage_amount)}</span>
@@ -490,4 +462,3 @@ export default function FinancialProfile() {
     </div>
   );
 }
-

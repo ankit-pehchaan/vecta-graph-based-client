@@ -190,6 +190,7 @@ export interface CurrentUserResponse {
   email: string;
   name: string;
   account_status: string;
+  features?: string[];  // Enabled feature flags
 }
 
 export async function getCurrentUser(): Promise<CurrentUserResponse> {
@@ -310,6 +311,84 @@ export interface DocumentExtractionMessage extends WebSocketMessage {
   requires_confirmation: boolean;
 }
 
+// Visualization message types
+export interface VizPoint {
+  x: string | number;
+  y: number;
+}
+
+export interface VizSeries {
+  name: string;
+  data: VizPoint[];
+}
+
+export interface VizChart {
+  kind: 'line' | 'bar' | 'area';
+  x_label: string;
+  y_label: string;
+  x_unit?: string;
+  y_unit?: string;
+}
+
+export interface VizTable {
+  columns: string[];
+  rows: Array<Array<string | number | null>>;
+}
+
+export interface VizScorecardKpi {
+  label: string;
+  value: string | number | null;
+  note?: string;
+}
+
+export interface VizScorecard {
+  kpis: VizScorecardKpi[];
+}
+
+export interface VizTimelineEvent {
+  label: string;
+  detail?: string;
+}
+
+export interface VizTimeline {
+  events: VizTimelineEvent[];
+}
+
+export interface VisualizationMessage extends WebSocketMessage {
+  type: 'visualization';
+  spec_version: '1';
+  viz_id: string;
+  title: string;
+  subtitle?: string;
+  narrative?: string;
+  chart?: VizChart | null;
+  series?: VizSeries[];
+  table?: VizTable | null;
+  scorecard?: VizScorecard | null;
+  timeline?: VizTimeline | null;
+  explore_next?: string[];
+  assumptions?: string[];
+  meta?: Record<string, unknown>;
+}
+
+// UI Actions (server -> client)
+export interface UIAction {
+  id: string;
+  label: string;
+  action_type: 'send_message' | 'open_url' | 'noop';
+  message?: string;
+  url?: string;
+  style?: 'primary' | 'secondary' | 'ghost';
+  disabled?: boolean;
+}
+
+export interface UIActionsMessage extends WebSocketMessage {
+  type: 'ui_actions';
+  actions: UIAction[];
+  hint?: string;
+  ephemeral?: boolean;
+}
+
 // Financial Profile types
 export interface Goal {
   description?: string;
@@ -365,7 +444,6 @@ export interface FinancialProfile {
   goals: Goal[];
   assets: Asset[];
   liabilities: Liability[];
-  cash_balance?: number; // Total cash in bank accounts/savings
   superannuation: Superannuation[]; // Array of superannuation accounts
   income?: number;
   monthly_income?: number;
@@ -375,12 +453,47 @@ export interface FinancialProfile {
   financial_stage?: string;
   updated_at?: string;
   created_at?: string;
+  // Computed fields (serialized by backend)
+  cash_balance?: number; // Total cash in bank accounts/savings (computed from assets)
+  total_assets?: number; // Total value of all assets
+  total_liabilities?: number; // Total value of all liabilities
+  total_superannuation?: number; // Total super balance
+  net_worth?: number; // assets + super - liabilities
 }
 
 // WebSocket connection helper - cookies are sent automatically
 export function createWebSocketUrl(path: string): string {
   const baseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
   return `${baseUrl}${path}`;
+}
+
+// Financial Profile API
+export async function getFinancialProfile(): Promise<FinancialProfile | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/advice/profile`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new ApiError('Failed to fetch profile', response.status);
+    }
+
+    const data = await response.json();
+    if (data.success && data.data) {
+      return data.data as FinancialProfile;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching financial profile:', error);
+    return null;
+  }
 }
 
 export { ApiError };

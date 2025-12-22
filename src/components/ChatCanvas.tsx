@@ -1,43 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import VisualizationCard from './VisualizationCard';
+import type { ChatMessage as ChatMessageType } from '../contexts/WebSocketContext';
 import type {
   GreetingMessage,
   AgentResponseMessage,
   ProfileUpdateMessage,
-  IntelligenceSummaryMessage,
   ErrorMessage,
   DocumentProcessingMessage,
   DocumentExtractionMessage,
-  ExtractedData,
+  VisualizationMessage,
+  UIAction,
   DocumentType,
 } from '../services/api';
 
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: string;
-  isStreaming?: boolean;
-  type?: 'message' | 'profile_update' | 'document_processing' | 'document_extraction';
-  profileUpdate?: {
-    changes?: Record<string, any>;
-  };
-  documentExtraction?: {
-    extractionId: string;
-    extractedData: ExtractedData;
-    documentType: string;
-  };
-}
-
 interface ChatCanvasProps {
+  messages: ChatMessageType[];
   greeting?: GreetingMessage | null;
   agentResponse?: AgentResponseMessage | null;
   profileUpdate?: ProfileUpdateMessage | null;
-  intelligenceSummary?: IntelligenceSummaryMessage | null;
   error?: ErrorMessage | null;
   documentProcessing?: DocumentProcessingMessage | null;
   documentExtraction?: DocumentExtractionMessage | null;
+  visualization?: VisualizationMessage | null;
   onSendMessage: (content: string) => void;
   onDocumentUpload?: (s3Url: string, documentType: DocumentType, filename: string) => void;
   onDocumentConfirm?: (extractionId: string, confirmed: boolean) => void;
@@ -48,11 +34,8 @@ interface ChatCanvasProps {
 }
 
 export default function ChatCanvas({
-  greeting,
+  messages,
   agentResponse,
-  profileUpdate,
-  intelligenceSummary,
-  error,
   documentProcessing,
   documentExtraction,
   onSendMessage,
@@ -63,15 +46,12 @@ export default function ChatCanvas({
   sidebarOpen = false,
   onToggleSidebar,
 }: ChatCanvasProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentStreamingMessage, setCurrentStreamingMessage] = useState<string>('');
   const [isAgentThinking, setIsAgentThinking] = useState(false);
   const [isProcessingDocument, setIsProcessingDocument] = useState(false);
   const [documentStatus, setDocumentStatus] = useState<string>('');
   const [pendingExtractionId, setPendingExtractionId] = useState<string | null>(null);
+  const [confirmedExtractions, setConfirmedExtractions] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const streamingMessageIdRef = useRef<string | null>(null);
-  const greetingAddedRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,185 +59,24 @@ export default function ChatCanvas({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, currentStreamingMessage]);
+  }, [messages]);
 
-  // Handle greeting
+  // Track agent thinking state based on agentResponse
   useEffect(() => {
-    if (greeting && !greetingAddedRef.current) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `greeting-${Date.now()}`,
-          content: greeting.message,
-          isUser: false,
-          timestamp: greeting.timestamp || new Date().toISOString(),
-        },
-      ]);
-      greetingAddedRef.current = true;
-    }
-  }, [greeting]);
-
-  // Handle agent response chunks - SINGLE useEffect to prevent duplication
-  useEffect(() => {
-    if (!agentResponse) return;
-
-    if (agentResponse.is_complete) {
-      // Final chunk - complete the streaming message
-      if (streamingMessageIdRef.current) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === streamingMessageIdRef.current
-              ? { ...m, content: currentStreamingMessage, isStreaming: false }
-              : m
-          )
-        );
-        streamingMessageIdRef.current = null;
-        setCurrentStreamingMessage('');
+    if (agentResponse) {
+      if (agentResponse.is_complete) {
+        setIsAgentThinking(false);
+      } else if (agentResponse.content) {
+        // First content arrived, no longer "thinking"
         setIsAgentThinking(false);
       }
-    } else if (agentResponse.content) {
-      // Streaming chunk with content - first token arrived
-      setIsAgentThinking(false);
-      
-      if (!streamingMessageIdRef.current) {
-        // Start new streaming message
-        const id = `agent-${Date.now()}`;
-        streamingMessageIdRef.current = id;
-        setMessages((prev) => [
-          ...prev,
-          {
-            id,
-            content: '',
-            isUser: false,
-            timestamp: agentResponse.timestamp || new Date().toISOString(),
-            isStreaming: true,
-          },
-        ]);
-      }
-      
-      // Accumulate the chunk and update message in one operation
-      setCurrentStreamingMessage((prev) => {
-        const newContent = prev + agentResponse.content;
-        // Update the message immediately with new content
-        setMessages((prevMessages) =>
-          prevMessages.map((m) =>
-            m.id === streamingMessageIdRef.current
-              ? { ...m, content: newContent, isStreaming: true }
-              : m
-          )
-        );
-        return newContent;
-      });
     }
   }, [agentResponse]);
-
-  // Handle profile updates
-  useEffect(() => {
-    if (profileUpdate && profileUpdate.changes) {
-      const changes = profileUpdate.changes;
-      const updateMessages: string[] = [];
-
-      if (changes.goals && Array.isArray(changes.goals) && changes.goals.length > 0) {
-        changes.goals.forEach((goal: any) => {
-          const desc = goal.description || 'Financial goal';
-          updateMessages.push(`New goal: ${desc}`);
-        });
-      }
-
-      if (changes.assets && Array.isArray(changes.assets) && changes.assets.length > 0) {
-        changes.assets.forEach((asset: any) => {
-          const desc = asset.description || asset.asset_type?.replace(/_/g, ' ') || 'Asset';
-          const value = asset.value ? ` (${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(asset.value)})` : '';
-          updateMessages.push(`New asset: ${desc}${value}`);
-        });
-      }
-
-      if (changes.liabilities && Array.isArray(changes.liabilities) && changes.liabilities.length > 0) {
-        changes.liabilities.forEach((liability: any) => {
-          const desc = liability.description || liability.liability_type?.replace(/_/g, ' ') || 'Liability';
-          const amount = liability.amount ? ` (${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(liability.amount)})` : '';
-          updateMessages.push(`New liability: ${desc}${amount}`);
-        });
-      }
-
-      if (changes.insurance && Array.isArray(changes.insurance) && changes.insurance.length > 0) {
-        changes.insurance.forEach((insurance: any) => {
-          const type = insurance.insurance_type?.replace(/_/g, ' ') || 'Insurance';
-          updateMessages.push(`New insurance: ${type}${insurance.provider ? ` (${insurance.provider})` : ''}`);
-        });
-      }
-
-      if (changes.cash_balance !== undefined && changes.cash_balance !== null) {
-        updateMessages.push(`Cash balance updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.cash_balance)}`);
-      }
-
-      if (changes.superannuation !== undefined && changes.superannuation !== null) {
-        updateMessages.push(`Superannuation updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.superannuation)}`);
-      }
-
-      if (changes.income !== undefined && changes.income !== null) {
-        updateMessages.push(`Annual income updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.income)}`);
-      }
-
-      if (changes.monthly_income !== undefined && changes.monthly_income !== null) {
-        updateMessages.push(`Monthly income updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.monthly_income)}`);
-      }
-
-      if (changes.expenses !== undefined && changes.expenses !== null) {
-        updateMessages.push(`Monthly expenses updated: ${new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(changes.expenses)}`);
-      }
-
-      if (changes.risk_tolerance) {
-        updateMessages.push(`Risk tolerance: ${changes.risk_tolerance}`);
-      }
-
-      if (updateMessages.length > 0) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `profile-update-${Date.now()}`,
-            content: updateMessages.join('\n'),
-            isUser: false,
-            timestamp: profileUpdate.timestamp || new Date().toISOString(),
-            type: 'profile_update',
-            profileUpdate: { changes },
-          },
-        ]);
-      }
-    }
-  }, [profileUpdate]);
-
-  // Handle errors
-  useEffect(() => {
-    if (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          content: `Error: ${error.message}`,
-          isUser: false,
-          timestamp: error.timestamp || new Date().toISOString(),
-        },
-      ]);
-    }
-  }, [error]);
 
   // Handle document processing status
   useEffect(() => {
     if (documentProcessing) {
-      if (documentProcessing.status === 'error') {
-        setIsProcessingDocument(false);
-        setDocumentStatus('');
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `doc-error-${Date.now()}`,
-            content: `Document processing failed: ${documentProcessing.message}`,
-            isUser: false,
-            timestamp: documentProcessing.timestamp || new Date().toISOString(),
-          },
-        ]);
-      } else if (documentProcessing.status === 'complete') {
+      if (documentProcessing.status === 'error' || documentProcessing.status === 'complete') {
         setIsProcessingDocument(false);
         setDocumentStatus('');
       } else {
@@ -273,22 +92,6 @@ export default function ChatCanvas({
       setIsProcessingDocument(false);
       setDocumentStatus('');
       setPendingExtractionId(documentExtraction.extraction_id);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `doc-extraction-${Date.now()}`,
-          content: documentExtraction.summary,
-          isUser: false,
-          timestamp: documentExtraction.timestamp || new Date().toISOString(),
-          type: 'document_extraction',
-          documentExtraction: {
-            extractionId: documentExtraction.extraction_id,
-            extractedData: documentExtraction.extracted_data,
-            documentType: documentExtraction.document_type,
-          },
-        },
-      ]);
     }
   }, [documentExtraction]);
 
@@ -296,30 +99,12 @@ export default function ChatCanvas({
     if (onDocumentConfirm) {
       onDocumentConfirm(extractionId, confirmed);
       setPendingExtractionId(null);
-
-      // Update the message to show confirmation status
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.documentExtraction?.extractionId === extractionId
-            ? { ...m, content: m.content + (confirmed ? '\n\n*Confirmed and saved to profile*' : '\n\n*Rejected*') }
-            : m
-        )
-      );
+      setConfirmedExtractions(prev => new Set(prev).add(extractionId));
     }
   };
 
   const handleDocumentUpload = (s3Url: string, documentType: DocumentType, filename: string) => {
     if (onDocumentUpload) {
-      // Add user message about the upload
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `user-upload-${Date.now()}`,
-          content: `Uploading document: ${filename}`,
-          isUser: true,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
       setIsProcessingDocument(true);
       setDocumentStatus('Uploading document...');
       onDocumentUpload(s3Url, documentType, filename);
@@ -327,15 +112,39 @@ export default function ChatCanvas({
   };
 
   const handleSend = (content: string) => {
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      content,
-      isUser: true,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsAgentThinking(true); // Show loading when user sends message
+    setIsAgentThinking(true);
     onSendMessage(content);
+  };
+
+  const renderActionButton = (action: UIAction) => {
+    const base =
+      'text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    const style =
+      action.style === 'primary'
+        ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
+        : action.style === 'ghost'
+        ? 'bg-transparent border-gray-200 text-gray-700 hover:bg-gray-50'
+        : 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100';
+
+    return (
+      <button
+        key={action.id}
+        type="button"
+        disabled={!!action.disabled}
+        className={`${base} ${style}`}
+        onClick={() => {
+          if (action.action_type === 'send_message' && action.message) {
+            handleSend(action.message);
+          } else if (action.action_type === 'open_url' && action.url) {
+            window.open(action.url, '_blank', 'noopener,noreferrer');
+          }
+        }}
+        aria-label={action.label}
+        title={action.label}
+      >
+        {action.label}
+      </button>
+    );
   };
 
   return (
@@ -344,7 +153,7 @@ export default function ChatCanvas({
       <div className="flex-shrink-0 border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">AI Agent Chat</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Vecta</h2>
             {isConnected ? (
               <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                 Active
@@ -381,12 +190,12 @@ export default function ChatCanvas({
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
         {messages.length === 0 && !isConnecting && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-            Start a conversation with your financial adviser...
+            Start a conversation — share a goal or choose an option above.
           </div>
         )}
         {isConnecting && messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-            Connecting to your financial adviser...
+            Connecting to Vecta...
           </div>
         )}
         {messages.map((message) => {
@@ -415,7 +224,8 @@ export default function ChatCanvas({
             );
           }
           if (message.type === 'document_extraction' && message.documentExtraction) {
-            const isPending = pendingExtractionId === message.documentExtraction.extractionId;
+            const extractionId = message.documentExtraction.extractionId;
+            const isPending = pendingExtractionId === extractionId && !confirmedExtractions.has(extractionId);
             return (
               <div key={message.id} className="flex justify-start mb-4">
                 <div className="max-w-[80%]">
@@ -430,7 +240,7 @@ export default function ChatCanvas({
                     {isPending && onDocumentConfirm && (
                       <div className="flex gap-2 pt-2 border-t border-blue-200">
                         <button
-                          onClick={() => handleDocumentConfirm(message.documentExtraction!.extractionId, true)}
+                          onClick={() => handleDocumentConfirm(extractionId, true)}
                           className="flex-1 py-2 px-3 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,7 +249,7 @@ export default function ChatCanvas({
                           Looks correct
                         </button>
                         <button
-                          onClick={() => handleDocumentConfirm(message.documentExtraction!.extractionId, false)}
+                          onClick={() => handleDocumentConfirm(extractionId, false)}
                           className="flex-1 py-2 px-3 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors flex items-center justify-center gap-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,6 +259,33 @@ export default function ChatCanvas({
                         </button>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          if (message.type === 'visualization' && message.visualization) {
+            return (
+              <div key={message.id} className="flex justify-start mb-4">
+                <div className="max-w-[80%]">
+                  <VisualizationCard viz={message.visualization} onExploreNext={(t) => handleSend(t)} />
+                </div>
+              </div>
+            );
+          }
+          if (message.type === 'ui_actions' && message.uiActions) {
+            const actions = message.uiActions.actions || [];
+            if (actions.length === 0) return null;
+            return (
+              <div key={message.id} className="flex justify-start mb-4">
+                <div className="max-w-[80%]">
+                  <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 shadow-sm">
+                    {message.uiActions.hint && (
+                      <div className="text-xs text-gray-600 mb-2">{message.uiActions.hint}</div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {actions.map(renderActionButton)}
+                    </div>
                   </div>
                 </div>
               </div>

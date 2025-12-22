@@ -12,6 +12,7 @@ import {
   type DocumentConfirmMessage,
   type DocumentProcessingMessage,
   type DocumentExtractionMessage,
+  type VisualizationMessage,
   type DocumentType,
 } from '../services/api';
 
@@ -23,6 +24,7 @@ export type MessageHandler = {
   onError?: (message: ErrorMessage) => void;
   onDocumentProcessing?: (message: DocumentProcessingMessage) => void;
   onDocumentExtraction?: (message: DocumentExtractionMessage) => void;
+  onVisualization?: (message: VisualizationMessage) => void;
 };
 
 interface UseWebSocketOptions {
@@ -90,6 +92,9 @@ export function useWebSocket(
         break;
       case 'document_extraction':
         currentHandlers?.onDocumentExtraction?.(message as DocumentExtractionMessage);
+        break;
+      case 'visualization':
+        currentHandlers?.onVisualization?.(message as VisualizationMessage);
         break;
       default:
         console.warn('Unknown message type:', message.type);

@@ -1,64 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
 import ChatCanvas from '../components/ChatCanvas';
 import ProfilePanel from '../components/ProfilePanel';
 import IntelligenceSummary from '../components/IntelligenceSummary';
-import { getCurrentUser } from '../services/api';
-import type {
-  GreetingMessage,
-  AgentResponseMessage,
-  IntelligenceSummaryMessage,
-  ErrorMessage,
-  FinancialProfile,
-  DocumentProcessingMessage,
-  DocumentExtractionMessage,
-  DocumentType,
-} from '../services/api';
+import type { DocumentType } from '../services/api';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading } = useAuth();
-  const [verifyingAuth, setVerifyingAuth] = useState(true);
-
-  // State for WebSocket messages
-  const [greeting, setGreeting] = useState<GreetingMessage | null>(null);
-  const [agentResponse, setAgentResponse] = useState<AgentResponseMessage | null>(null);
-  const [profile, setProfile] = useState<FinancialProfile | null>(null);
-  const [intelligenceSummary, setIntelligenceSummary] = useState<IntelligenceSummaryMessage | null>(null);
-  const [error, setError] = useState<ErrorMessage | null>(null);
-  const [documentProcessing, setDocumentProcessing] = useState<DocumentProcessingMessage | null>(null);
-  const [documentExtraction, setDocumentExtraction] = useState<DocumentExtractionMessage | null>(null);
+  const { logout, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // WebSocket connection
-  const { sendMessage, sendDocumentUpload, sendDocumentConfirm, isConnected, isConnecting, disconnect } = useWebSocket({
-    enabled: !!user && !verifyingAuth, // Only enable after auth verification
-    handlers: {
-      onGreeting: (msg) => {
-        setGreeting(msg);
-      },
-      onAgentResponse: (msg) => {
-        setAgentResponse(msg);
-      },
-      onProfileUpdate: (msg) => {
-        setProfile(msg.profile);
-      },
-      onIntelligenceSummary: (msg) => {
-        setIntelligenceSummary(msg);
-      },
-      onError: (msg) => {
-        setError(msg);
-      },
-      onDocumentProcessing: (msg) => {
-        setDocumentProcessing(msg);
-      },
-      onDocumentExtraction: (msg) => {
-        setDocumentExtraction(msg);
-      },
-    },
-  });
+  // Get everything from WebSocket context (persisted across route changes)
+  const {
+    isConnected,
+    isConnecting,
+    messages,
+    greeting,
+    agentResponse,
+    intelligenceSummary,
+    error,
+    documentProcessing,
+    documentExtraction,
+    visualization,
+    profile,
+    sendMessage,
+    sendDocumentUpload,
+    sendDocumentConfirm,
+    addUserMessage,
+    clearDocumentExtraction,
+    features,
+  } = useWebSocketContext();
 
   // Document upload handler
   const handleDocumentUpload = (s3Url: string, documentType: DocumentType, filename: string) => {
@@ -68,48 +41,11 @@ export default function Dashboard() {
   // Document confirm handler
   const handleDocumentConfirm = (extractionId: string, confirmed: boolean) => {
     sendDocumentConfirm(extractionId, confirmed);
-    // Clear extraction after confirmation
-    setDocumentExtraction(null);
+    clearDocumentExtraction();
   };
-
-  // Verify authentication with backend on mount
-  useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        await getCurrentUser();
-        setVerifyingAuth(false);
-      } catch (error) {
-        // If /me fails (401), redirect to login
-        console.error('Authentication verification failed:', error);
-        navigate('/login', { replace: true });
-      }
-    };
-
-    verifyAuth();
-  }, [navigate]);
-
-  // Cleanup WebSocket on unmount or when user logs out
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, [disconnect]);
-
-  // Reset agent response when a new one starts (when is_complete is false after a complete)
-  useEffect(() => {
-    if (agentResponse?.is_complete) {
-      // Reset after a short delay to allow UI to update
-      const timer = setTimeout(() => {
-        setAgentResponse(null);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [agentResponse]);
 
   const handleLogout = async () => {
     try {
-      // Disconnect WebSocket before logging out
-      disconnect();
       await logout();
       navigate('/login');
     } catch (err) {
@@ -117,17 +53,8 @@ export default function Dashboard() {
     }
   };
 
-  // Show loading while verifying authentication - AFTER all hooks are called
-  if (verifyingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">Verifying authentication...</p>
-        </div>
-      </div>
-    );
-  }
+  // Check if intelligence summary feature is enabled
+  const showIntelligenceSummary = features.includes('intelligence_summary');
 
   return (
     <div className="h-screen bg-white flex overflow-hidden">
@@ -162,15 +89,6 @@ export default function Dashboard() {
             </svg>
             Financial Profile
           </a>
-          <a
-            href="#"
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            Strategy Advice
-          </a>
         </nav>
 
         <div className="p-4 border-t border-gray-200 space-y-2">
@@ -202,14 +120,18 @@ export default function Dashboard() {
         <div className="flex-1 flex relative overflow-hidden">
           <div className="flex-1 h-full overflow-hidden" style={{ marginRight: sidebarOpen ? '320px' : '0', transition: 'margin-right 0.3s ease' }}>
             <ChatCanvas
+              messages={messages}
               greeting={greeting}
               agentResponse={agentResponse}
               profileUpdate={profile ? { type: 'profile_update', profile } : null}
-              intelligenceSummary={intelligenceSummary}
               error={error}
               documentProcessing={documentProcessing}
               documentExtraction={documentExtraction}
-              onSendMessage={sendMessage}
+              visualization={visualization}
+              onSendMessage={(content) => {
+                addUserMessage(content);
+                sendMessage(content);
+              }}
               onDocumentUpload={handleDocumentUpload}
               onDocumentConfirm={handleDocumentConfirm}
               isConnected={isConnected}
@@ -224,7 +146,9 @@ export default function Dashboard() {
             <aside className="absolute right-0 top-0 bottom-0 w-80 border-l border-gray-200 overflow-y-auto bg-white/95 backdrop-blur-sm z-10">
               <div className="p-4 space-y-4">
                 <ProfilePanel profile={profile} />
-                <IntelligenceSummary summary={intelligenceSummary} />
+                {showIntelligenceSummary && (
+                  <IntelligenceSummary summary={intelligenceSummary} />
+                )}
               </div>
             </aside>
           )}
@@ -233,4 +157,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FinancialProfile, ProfileUpdateMessage, Asset, Liability, Insurance, Goal, Superannuation } from '../services/api';
+import type { FinancialProfile, ProfileUpdateMessage, Asset, Liability } from '../services/api';
 
 interface ProfilePanelProps {
   profile: FinancialProfile | null;
@@ -40,9 +40,8 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
   const totalSuperannuation = localProfile.superannuation?.reduce((sum, super_) => sum + (super_.balance || 0), 0) || 0;
   const netWorth = totalAssets + (localProfile.cash_balance || 0) + totalSuperannuation - totalLiabilities;
 
-  // Calculate profile completion
+  // Calculate profile completion percentage
   const factsCollected = calculateFactsCollected(localProfile);
-  const profileCompletion = calculateProfileCompletion(localProfile);
 
   // Group assets by type
   const assetsByType = localProfile.assets.reduce((acc, asset) => {
@@ -451,38 +450,28 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
         </div>
       </div>
 
-      {/* Profile Progress */}
+      {/* Profile Progress - Single consolidated progress bar */}
       <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Profile Progress</h3>
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Profile Completion</h3>
 
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Facts Collected</span>
-              <span className="text-xs font-medium text-gray-900">{factsCollected}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${factsCollected}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{factsCollected}% of required facts collected.</p>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-gray-600">Facts Collected</span>
+            <span className="text-xs font-medium text-gray-900">{factsCollected}%</span>
           </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Profile Completion</span>
-              <span className="text-xs font-medium text-gray-900">{profileCompletion}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${profileCompletion}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{profileCompletion}% of client profile information complete.</p>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div
+              className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${factsCollected}%` }}
+            />
           </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {factsCollected < 25 ? 'Getting started - share your financial goals to begin.' :
+             factsCollected < 50 ? 'Good progress - add more details about assets and income.' :
+             factsCollected < 75 ? 'Almost there - complete insurance and superannuation details.' :
+             factsCollected < 100 ? 'Nearly complete - just a few more details needed.' :
+             'Profile complete! Your financial snapshot is ready.'}
+          </p>
         </div>
       </div>
     </div>
@@ -526,49 +515,4 @@ function calculateFactsCollected(profile: FinancialProfile): number {
   if (profile.insurance.length > 0) facts += 1;
 
   return Math.round((facts / total) * 100);
-}
-
-function calculateProfileCompletion(profile: FinancialProfile): number {
-  let score = 0;
-  let max = 0;
-
-  // Goals (20 points)
-  max += 20;
-  if (profile.goals.length > 0) score += 10;
-  if (profile.goals.length > 1) score += 10;
-
-  // Assets (20 points)
-  max += 20;
-  if (profile.assets.length > 0) score += 10;
-  if (profile.assets.length > 1) score += 10;
-
-  // Liabilities (15 points)
-  max += 15;
-  if (profile.liabilities.length > 0) score += 15;
-
-  // Cash balance (10 points)
-  max += 10;
-  if (profile.cash_balance !== undefined && profile.cash_balance !== null) score += 10;
-
-  // Superannuation (10 points)
-  max += 10;
-  if (profile.superannuation && profile.superannuation.length > 0) score += 10;
-
-  // Income (15 points)
-  max += 15;
-  if (profile.income || profile.monthly_income) score += 15;
-
-  // Risk tolerance (10 points)
-  max += 10;
-  if (profile.risk_tolerance) score += 10;
-
-  // Insurance (10 points)
-  max += 10;
-  if (profile.insurance.length > 0) score += 10;
-
-  // Financial stage (10 points)
-  max += 10;
-  if (profile.financial_stage) score += 10;
-
-  return Math.round((score / max) * 100);
 }
