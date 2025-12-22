@@ -140,7 +140,7 @@ export default function Dashboard() {
               onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             />
           </div>
-          
+
           {/* Right Sidebar - Toggleable */}
           {sidebarOpen && (
             <aside className="absolute right-0 top-0 bottom-0 w-80 border-l border-gray-200 overflow-y-auto bg-white/95 backdrop-blur-sm z-10">

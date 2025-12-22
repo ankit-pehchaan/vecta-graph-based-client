@@ -265,6 +265,12 @@ export interface DocumentProcessingMessage extends WebSocketMessage {
   message: string;
 }
 
+export interface DocumentUploadPromptMessage extends WebSocketMessage {
+  type: 'document_upload_prompt';
+  message: string;
+  suggested_types: DocumentType[];
+}
+
 export interface ExtractedData {
   goals: Array<{
     description: string;

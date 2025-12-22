@@ -11,4 +11,6 @@ const getApiBaseUrl = (): string => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+// Debug mode - enables developer features like export chat
+export const DEBUG_MODE = import.meta.env.VITE_DEBUG === 'true';
 

@@ -13,6 +13,7 @@ import {
   type DocumentProcessingMessage,
   type DocumentExtractionMessage,
   type VisualizationMessage,
+  type DocumentUploadPromptMessage,
   type DocumentType,
 } from '../services/api';
 
@@ -24,6 +25,7 @@ export type MessageHandler = {
   onError?: (message: ErrorMessage) => void;
   onDocumentProcessing?: (message: DocumentProcessingMessage) => void;
   onDocumentExtraction?: (message: DocumentExtractionMessage) => void;
+  onDocumentUploadPrompt?: (message: DocumentUploadPromptMessage) => void;
   onVisualization?: (message: VisualizationMessage) => void;
 };
 
@@ -95,6 +97,9 @@ export function useWebSocket(
         break;
       case 'visualization':
         currentHandlers?.onVisualization?.(message as VisualizationMessage);
+        break;
+      case 'document_upload_prompt':
+        currentHandlers?.onDocumentUploadPrompt?.(message as DocumentUploadPromptMessage);
         break;
       default:
         console.warn('Unknown message type:', message.type);

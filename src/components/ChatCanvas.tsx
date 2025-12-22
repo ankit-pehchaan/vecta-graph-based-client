@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import VisualizationCard from './VisualizationCard';
 import type { ChatMessage as ChatMessageType } from '../contexts/WebSocketContext';
+import InlineDocumentUpload from './InlineDocumentUpload';
+import { DEBUG_MODE } from '../config';
 import type {
   GreetingMessage,
   AgentResponseMessage,
@@ -12,8 +15,30 @@ import type {
   DocumentExtractionMessage,
   VisualizationMessage,
   UIAction,
+  DocumentUploadPromptMessage,
+  ExtractedData,
   DocumentType,
 } from '../services/api';
+
+interface Message {
+  id: string;
+  content: string;
+  isUser: boolean;
+  timestamp: string;
+  isStreaming?: boolean;
+  type?: 'message' | 'profile_update' | 'document_processing' | 'document_extraction' | 'document_upload_prompt';
+  profileUpdate?: {
+    changes?: Record<string, any>;
+  };
+  documentExtraction?: {
+    extractionId: string;
+    extractedData: ExtractedData;
+    documentType: string;
+  };
+  documentUploadPrompt?: {
+    suggestedTypes: DocumentType[];
+  };
+}
 
 interface ChatCanvasProps {
   messages: ChatMessageType[];
@@ -24,6 +49,7 @@ interface ChatCanvasProps {
   documentProcessing?: DocumentProcessingMessage | null;
   documentExtraction?: DocumentExtractionMessage | null;
   visualization?: VisualizationMessage | null;
+  documentUploadPrompt?: DocumentUploadPromptMessage | null;
   onSendMessage: (content: string) => void;
   onDocumentUpload?: (s3Url: string, documentType: DocumentType, filename: string) => void;
   onDocumentConfirm?: (extractionId: string, confirmed: boolean) => void;
@@ -38,6 +64,7 @@ export default function ChatCanvas({
   agentResponse,
   documentProcessing,
   documentExtraction,
+  documentUploadPrompt,
   onSendMessage,
   onDocumentUpload,
   onDocumentConfirm,
@@ -50,6 +77,7 @@ export default function ChatCanvas({
   const [isProcessingDocument, setIsProcessingDocument] = useState(false);
   const [documentStatus, setDocumentStatus] = useState<string>('');
   const [pendingExtractionId, setPendingExtractionId] = useState<string | null>(null);
+  const [pendingUploadPromptId, setPendingUploadPromptId] = useState<string | null>(null);
   const [confirmedExtractions, setConfirmedExtractions] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +123,28 @@ export default function ChatCanvas({
     }
   }, [documentExtraction]);
 
+  // Handle document upload prompt
+  useEffect(() => {
+    if (documentUploadPrompt) {
+      const promptId = `doc-upload-prompt-${Date.now()}`;
+      setPendingUploadPromptId(promptId);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: promptId,
+          content: documentUploadPrompt.message,
+          isUser: false,
+          timestamp: documentUploadPrompt.timestamp || new Date().toISOString(),
+          type: 'document_upload_prompt',
+          documentUploadPrompt: {
+            suggestedTypes: documentUploadPrompt.suggested_types,
+          },
+        },
+      ]);
+    }
+  }, [documentUploadPrompt]);
+
   const handleDocumentConfirm = (extractionId: string, confirmed: boolean) => {
     if (onDocumentConfirm) {
       onDocumentConfirm(extractionId, confirmed);
@@ -109,6 +159,40 @@ export default function ChatCanvas({
       setDocumentStatus('Uploading document...');
       onDocumentUpload(s3Url, documentType, filename);
     }
+  };
+
+  const handleInlineUpload = (promptId: string, s3Url: string, documentType: DocumentType, filename: string) => {
+    // Clear the pending prompt
+    setPendingUploadPromptId(null);
+
+    // Update the prompt message to show it was used
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === promptId
+          ? { ...m, content: m.content + '\n\n*Document uploaded*' }
+          : m
+      )
+    );
+
+    // Handle the actual upload
+    handleDocumentUpload(s3Url, documentType, filename);
+  };
+
+  const handleInlineUploadDismiss = (promptId: string) => {
+    // Clear the pending prompt
+    setPendingUploadPromptId(null);
+
+    // Update the prompt message to show it was dismissed
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === promptId
+          ? { ...m, content: m.content + '\n\n*Chose to share verbally*' }
+          : m
+      )
+    );
+
+    // Send a message to the agent that user will share verbally
+    onSendMessage("I'll share this information verbally instead");
   };
 
   const handleSend = (content: string) => {
@@ -147,6 +231,75 @@ export default function ChatCanvas({
     );
   };
 
+  const handleExportChat = () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPos = margin;
+
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Chat Export', margin, yPos);
+    yPos += 10;
+
+    // Timestamp
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(128, 128, 128);
+    pdf.text(`Exported: ${new Date().toLocaleString()}`, margin, yPos);
+    yPos += 15;
+
+    // Messages
+    pdf.setTextColor(0, 0, 0);
+    messages.forEach((message) => {
+      // Check if we need a new page
+      if (yPos > pageHeight - 40) {
+        pdf.addPage();
+        yPos = margin;
+      }
+
+      // Sender label
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      if (message.isUser) {
+        pdf.setTextColor(37, 99, 235); // Blue for user
+        pdf.text('You', margin, yPos);
+      } else {
+        pdf.setTextColor(22, 163, 74); // Green for agent
+        const label = message.type === 'profile_update' ? 'Profile Update' : 'Vecta';
+        pdf.text(label, margin, yPos);
+      }
+
+      // Timestamp
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(156, 163, 175);
+      const time = new Date(message.timestamp).toLocaleTimeString();
+      pdf.text(` - ${time}`, margin + 25, yPos);
+      yPos += 6;
+
+      // Message content
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+      const lines = pdf.splitTextToSize(message.content, maxWidth);
+      lines.forEach((line: string) => {
+        if (yPos > pageHeight - 20) {
+          pdf.addPage();
+          yPos = margin;
+        }
+        pdf.text(line, margin, yPos);
+        yPos += 5;
+      });
+
+      yPos += 8; // Space between messages
+    });
+
+    pdf.save(`chat-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -168,21 +321,36 @@ export default function ChatCanvas({
               </span>
             )}
           </div>
-          {onToggleSidebar && (
-            <button
-              onClick={onToggleSidebar}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {sidebarOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                )}
-              </svg>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {DEBUG_MODE && (
+              <button
+                onClick={handleExportChat}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                aria-label="Export chat as PDF"
+                title="Export chat as PDF"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11v6m-3-3l3 3 3-3" />
+                </svg>
+              </button>
+            )}
+            {onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {sidebarOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  )}
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -287,6 +455,30 @@ export default function ChatCanvas({
                       {actions.map(renderActionButton)}
                     </div>
                   </div>
+                </div>
+              </div>
+            );
+          }
+          if (message.type === 'document_upload_prompt' && message.documentUploadPrompt) {
+            const isPending = pendingUploadPromptId === message.id;
+            return (
+              <div key={message.id} className="flex justify-start mb-4">
+                <div className="max-w-[90%]">
+                  {/* Agent message */}
+                  <div className="rounded-2xl px-4 py-3 bg-gray-50 text-gray-900 rounded-bl-sm border border-gray-200 mb-3">
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  </div>
+                  {/* Inline upload widget */}
+                  {isPending && onDocumentUpload && (
+                    <InlineDocumentUpload
+                      suggestedTypes={message.documentUploadPrompt.suggestedTypes}
+                      onUpload={(s3Url, documentType, filename) =>
+                        handleInlineUpload(message.id, s3Url, documentType, filename)
+                      }
+                      onDismiss={() => handleInlineUploadDismiss(message.id)}
+                      disabled={!isConnected}
+                    />
+                  )}
                 </div>
               </div>
             );
