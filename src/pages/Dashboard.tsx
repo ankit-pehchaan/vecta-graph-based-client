@@ -23,6 +23,7 @@ export default function Dashboard() {
     error,
     documentProcessing,
     documentExtraction,
+    documentUploadPrompt,
     visualization,
     profile,
     sendMessage,
@@ -127,6 +128,7 @@ export default function Dashboard() {
               error={error}
               documentProcessing={documentProcessing}
               documentExtraction={documentExtraction}
+              documentUploadPrompt={documentUploadPrompt}
               visualization={visualization}
               onSendMessage={(content) => {
                 addUserMessage(content);

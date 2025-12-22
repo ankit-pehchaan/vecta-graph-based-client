@@ -123,27 +123,21 @@ export default function ChatCanvas({
     }
   }, [documentExtraction]);
 
-  // Handle document upload prompt
+  // Handle document upload prompt - set pending ID when a new prompt arrives
   useEffect(() => {
     if (documentUploadPrompt) {
-      const promptId = `doc-upload-prompt-${Date.now()}`;
-      setPendingUploadPromptId(promptId);
+      // Clear thinking indicator since we got a response
+      setIsAgentThinking(false);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: promptId,
-          content: documentUploadPrompt.message,
-          isUser: false,
-          timestamp: documentUploadPrompt.timestamp || new Date().toISOString(),
-          type: 'document_upload_prompt',
-          documentUploadPrompt: {
-            suggestedTypes: documentUploadPrompt.suggested_types,
-          },
-        },
-      ]);
+      // Find the corresponding message in the messages array to get its ID
+      const promptMessage = messages.find(
+        m => m.type === 'document_upload_prompt' && m.content === documentUploadPrompt.message
+      );
+      if (promptMessage) {
+        setPendingUploadPromptId(promptMessage.id);
+      }
     }
-  }, [documentUploadPrompt]);
+  }, [documentUploadPrompt, messages]);
 
   const handleDocumentConfirm = (extractionId: string, confirmed: boolean) => {
     if (onDocumentConfirm) {
@@ -161,35 +155,17 @@ export default function ChatCanvas({
     }
   };
 
-  const handleInlineUpload = (promptId: string, s3Url: string, documentType: DocumentType, filename: string) => {
+  const handleInlineUpload = (_promptId: string, s3Url: string, documentType: DocumentType, filename: string) => {
     // Clear the pending prompt
     setPendingUploadPromptId(null);
-
-    // Update the prompt message to show it was used
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === promptId
-          ? { ...m, content: m.content + '\n\n*Document uploaded*' }
-          : m
-      )
-    );
 
     // Handle the actual upload
     handleDocumentUpload(s3Url, documentType, filename);
   };
 
-  const handleInlineUploadDismiss = (promptId: string) => {
+  const handleInlineUploadDismiss = (_promptId: string) => {
     // Clear the pending prompt
     setPendingUploadPromptId(null);
-
-    // Update the prompt message to show it was dismissed
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === promptId
-          ? { ...m, content: m.content + '\n\n*Chose to share verbally*' }
-          : m
-      )
-    );
 
     // Send a message to the agent that user will share verbally
     onSendMessage("I'll share this information verbally instead");

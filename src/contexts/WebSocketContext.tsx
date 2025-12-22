@@ -14,6 +14,7 @@ import {
   type DocumentConfirmMessage,
   type DocumentProcessingMessage,
   type DocumentExtractionMessage,
+  type DocumentUploadPromptMessage,
   type VisualizationMessage,
   type UIActionsMessage,
   type UIAction,
@@ -28,7 +29,7 @@ export interface ChatMessage {
   isUser: boolean;
   timestamp: string;
   isStreaming?: boolean;
-  type?: 'message' | 'profile_update' | 'document_processing' | 'document_extraction' | 'visualization' | 'ui_actions';
+  type?: 'message' | 'profile_update' | 'document_processing' | 'document_extraction' | 'visualization' | 'ui_actions' | 'document_upload_prompt';
   profileUpdate?: {
     changes?: Record<string, unknown>;
   };
@@ -43,6 +44,9 @@ export interface ChatMessage {
     hint?: string;
     ephemeral?: boolean;
   };
+  documentUploadPrompt?: {
+    suggestedTypes: DocumentType[];
+  };
 }
 
 interface WebSocketContextType {
@@ -50,7 +54,7 @@ interface WebSocketContextType {
   isConnected: boolean;
   isConnecting: boolean;
   connectionError: string | null;
-  
+
   // Chat state
   messages: ChatMessage[];
   greeting: GreetingMessage | null;
@@ -59,6 +63,7 @@ interface WebSocketContextType {
   error: ErrorMessage | null;
   documentProcessing: DocumentProcessingMessage | null;
   documentExtraction: DocumentExtractionMessage | null;
+  documentUploadPrompt: DocumentUploadPromptMessage | null;
   visualization: VisualizationMessage | null;
   uiActions: UIActionsMessage | null;
   
@@ -95,6 +100,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<ErrorMessage | null>(null);
   const [documentProcessing, setDocumentProcessing] = useState<DocumentProcessingMessage | null>(null);
   const [documentExtraction, setDocumentExtraction] = useState<DocumentExtractionMessage | null>(null);
+  const [documentUploadPrompt, setDocumentUploadPrompt] = useState<DocumentUploadPromptMessage | null>(null);
   const [visualization, setVisualization] = useState<VisualizationMessage | null>(null);
   const [uiActions, setUiActions] = useState<UIActionsMessage | null>(null);
   
@@ -220,6 +226,25 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       case 'document_extraction':
         setDocumentExtraction(message as DocumentExtractionMessage);
         break;
+      case 'document_upload_prompt': {
+        const promptMsg = message as DocumentUploadPromptMessage;
+        setDocumentUploadPrompt(promptMsg);
+        // Add to messages for display in chat
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `doc-upload-prompt-${Date.now()}`,
+            content: promptMsg.message,
+            isUser: false,
+            timestamp: promptMsg.timestamp || new Date().toISOString(),
+            type: 'document_upload_prompt',
+            documentUploadPrompt: {
+              suggestedTypes: promptMsg.suggested_types,
+            },
+          }
+        ]);
+        break;
+      }
       case 'visualization':
         setVisualization(message as VisualizationMessage);
         // Add visualization to messages
@@ -381,6 +406,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     setError(null);
     setDocumentProcessing(null);
     setDocumentExtraction(null);
+    setDocumentUploadPrompt(null);
     setVisualization(null);
     setUiActions(null);
     setProfile(null);
@@ -532,6 +558,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         error,
         documentProcessing,
         documentExtraction,
+        documentUploadPrompt,
         visualization,
         uiActions,
         profile,
