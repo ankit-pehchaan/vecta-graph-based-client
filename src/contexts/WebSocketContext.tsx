@@ -147,24 +147,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       case 'agent_response': {
         const agentMsg = message as AgentResponseMessage;
         setAgentResponse(agentMsg);
-        
-        if (agentMsg.is_complete) {
-          // Final chunk - complete the streaming message
-          if (currentStreamingMessageIdRef.current) {
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === currentStreamingMessageIdRef.current
-                  ? { ...m, content: streamingContentRef.current, isStreaming: false }
-                  : m
-              )
-            );
-            currentStreamingMessageIdRef.current = null;
-            streamingContentRef.current = '';
-          }
-        } else if (agentMsg.content) {
-          // Streaming chunk with content
+
+        // If there's content, always accumulate it first (whether streaming or final)
+        if (agentMsg.content) {
+          // Start new streaming message if not already streaming
           if (!currentStreamingMessageIdRef.current) {
-            // Start new streaming message
             const id = `agent-${Date.now()}`;
             currentStreamingMessageIdRef.current = id;
             streamingContentRef.current = '';
@@ -179,18 +166,36 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
               }
             ]);
           }
-          
+
           // Accumulate the chunk
           streamingContentRef.current += agentMsg.content;
-          
+
           // Update the message with new content
           setMessages(prev =>
             prev.map(m =>
               m.id === currentStreamingMessageIdRef.current
-                ? { ...m, content: streamingContentRef.current, isStreaming: true }
+                ? { ...m, content: streamingContentRef.current, isStreaming: !agentMsg.is_complete }
                 : m
             )
           );
+        }
+
+        // If this is the final chunk, reset the streaming state
+        if (agentMsg.is_complete) {
+          // If we have a streaming message, mark it complete
+          if (currentStreamingMessageIdRef.current) {
+            // Final update to ensure content is set and streaming is false
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === currentStreamingMessageIdRef.current
+                  ? { ...m, content: streamingContentRef.current, isStreaming: false }
+                  : m
+              )
+            );
+          }
+          // Reset refs for next response
+          currentStreamingMessageIdRef.current = null;
+          streamingContentRef.current = '';
         }
         break;
       }
