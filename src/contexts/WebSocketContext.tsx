@@ -118,9 +118,58 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const greetingReceivedRef = useRef(false);
   const currentStreamingMessageIdRef = useRef<string | null>(null);
   const streamingContentRef = useRef<string>('');
-  
+  const rafIdRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef<boolean>(false);
+  const handleMessageRef = useRef<((message: WebSocketMessage) => void) | null>(null);
+
   const maxReconnectAttempts = 5;
   const baseReconnectDelay = 1000;
+
+  // Throttled state update using requestAnimationFrame
+  const scheduleMessageUpdate = useCallback((isComplete: boolean) => {
+    // If complete, force immediate update
+    if (isComplete) {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      pendingUpdateRef.current = false;
+
+      if (currentStreamingMessageIdRef.current) {
+        const messageId = currentStreamingMessageIdRef.current;
+        const content = streamingContentRef.current;
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === messageId
+              ? { ...m, content, isStreaming: false }
+              : m
+          )
+        );
+      }
+      return;
+    }
+
+    // For streaming updates, use RAF to batch
+    if (!pendingUpdateRef.current) {
+      pendingUpdateRef.current = true;
+      rafIdRef.current = requestAnimationFrame(() => {
+        pendingUpdateRef.current = false;
+        rafIdRef.current = null;
+
+        if (currentStreamingMessageIdRef.current) {
+          const messageId = currentStreamingMessageIdRef.current;
+          const content = streamingContentRef.current;
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === messageId
+                ? { ...m, content, isStreaming: true }
+                : m
+            )
+          );
+        }
+      });
+    }
+  }, []);
 
   // Handle incoming messages
   const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -148,6 +197,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         const agentMsg = message as AgentResponseMessage;
         setAgentResponse(agentMsg);
 
+        console.log('[WebSocket] agent_response chunk:', {
+          contentLength: agentMsg.content?.length || 0,
+          isComplete: agentMsg.is_complete,
+          currentMessageId: currentStreamingMessageIdRef.current,
+          accumulatedLength: streamingContentRef.current.length,
+        });
+
         // If there's content, always accumulate it first (whether streaming or final)
         if (agentMsg.content) {
           // Start new streaming message if not already streaming
@@ -167,33 +223,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             ]);
           }
 
-          // Accumulate the chunk
+          // Accumulate the chunk (synchronous - never loses data)
           streamingContentRef.current += agentMsg.content;
-
-          // Update the message with new content
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === currentStreamingMessageIdRef.current
-                ? { ...m, content: streamingContentRef.current, isStreaming: !agentMsg.is_complete }
-                : m
-            )
-          );
         }
 
-        // If this is the final chunk, reset the streaming state
+        // Schedule UI update (throttled for streaming, immediate for complete)
+        scheduleMessageUpdate(agentMsg.is_complete);
+
+        // If this is the final chunk, reset refs for next response
         if (agentMsg.is_complete) {
-          // If we have a streaming message, mark it complete
-          if (currentStreamingMessageIdRef.current) {
-            // Final update to ensure content is set and streaming is false
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === currentStreamingMessageIdRef.current
-                  ? { ...m, content: streamingContentRef.current, isStreaming: false }
-                  : m
-              )
-            );
-          }
-          // Reset refs for next response
           currentStreamingMessageIdRef.current = null;
           streamingContentRef.current = '';
         }
@@ -293,7 +331,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       default:
         console.warn('Unknown message type:', message.type);
     }
-  }, [features]);
+  }, [features, scheduleMessageUpdate]);
+
+  // Keep handleMessage ref updated to avoid stale closures in WebSocket
+  useEffect(() => {
+    handleMessageRef.current = handleMessage;
+  }, [handleMessage]);
 
   // Connect to WebSocket
   const connect = useCallback(() => {
@@ -330,7 +373,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           console.log('[WebSocket] Message received:', message.type);
-          handleMessage(message);
+          // Use ref to always call the latest handleMessage (avoids stale closure)
+          handleMessageRef.current?.(message);
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
         }
@@ -373,7 +417,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       setConnectionError('Failed to create WebSocket connection');
       setIsConnecting(false);
     }
-  }, [isAuthenticated, handleMessage]);
+  }, [isAuthenticated]); // handleMessage is accessed via ref to avoid stale closures
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {
