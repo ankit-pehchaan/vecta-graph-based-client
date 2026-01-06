@@ -13,6 +13,28 @@ function formatNumber(value: number, unit?: string) {
   return new Intl.NumberFormat('en-AU', { maximumFractionDigits: 2 }).format(value);
 }
 
+// Compact formatter for Y-axis labels to prevent overflow
+function formatAxisLabel(value: number, unit?: string) {
+  if (!Number.isFinite(value)) return String(value);
+
+  const absValue = Math.abs(value);
+  let formatted: string;
+
+  if (absValue >= 1_000_000) {
+    formatted = (value / 1_000_000).toFixed(1) + 'M';
+  } else if (absValue >= 1_000) {
+    formatted = (value / 1_000).toFixed(1) + 'K';
+  } else {
+    formatted = value.toFixed(0);
+  }
+
+  // Add currency symbol prefix if applicable
+  if (unit && /^[A-Z]{3}$/.test(unit)) {
+    return '$' + formatted;
+  }
+  return formatted;
+}
+
 function asNumericX(x: string | number): number | null {
   if (typeof x === 'number' && Number.isFinite(x)) return x;
   if (typeof x === 'string') {
@@ -40,10 +62,10 @@ function LineChart({
   yLabel: string;
 }) {
   const width = 700;
-  const height = 220;
-  const padding = { left: 52, right: 16, top: 14, bottom: 34 };
+  const height = 260;
+  const padding = { left: 70, right: 20, top: 20, bottom: 44 };
 
-  const { mappedSeries, xMin, xMax, yMin, yMax } = useMemo(() => {
+  const { mappedSeries, xMin, xMax, yMin, yMax, xTicks } = useMemo(() => {
     const allX: number[] = [];
     const allY: number[] = [];
 
@@ -64,10 +86,19 @@ function LineChart({
 
     const xMinV = allX.length ? Math.min(...allX) : 0;
     const xMaxV = allX.length ? Math.max(...allX) : 1;
-    const yMinV = allY.length ? Math.min(...allY) : 0;
+    // Start Y from 0 for better visualization when all values are positive
+    const yMinV = allY.length ? Math.min(0, Math.min(...allY)) : 0;
     const yMaxV = allY.length ? Math.max(...allY) : 1;
 
-    return { mappedSeries: mapped, xMin: xMinV, xMax: xMaxV, yMin: yMinV, yMax: yMaxV };
+    // Generate X ticks based on data range
+    const xRange = xMaxV - xMinV;
+    const xTickCount = Math.min(xRange + 1, 11); // Max 11 ticks for 10-year range
+    const xTicksArr: number[] = [];
+    for (let i = 0; i < xTickCount; i++) {
+      xTicksArr.push(xMinV + (xRange * i) / (xTickCount - 1 || 1));
+    }
+
+    return { mappedSeries: mapped, xMin: xMinV, xMax: xMaxV, yMin: yMinV, yMax: yMaxV, xTicks: xTicksArr };
   }, [series]);
 
   const plotW = width - padding.left - padding.right;
@@ -78,15 +109,15 @@ function LineChart({
   const colors = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   return (
-    <div className="w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[220px]">
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[400px]" style={{ height: 'auto', aspectRatio: `${width}/${height}` }}>
         <style>
           {`
             @keyframes vizDash { from { stroke-dashoffset: 1200; } to { stroke-dashoffset: 0; } }
           `}
         </style>
 
-        {/* grid */}
+        {/* horizontal grid lines */}
         {Array.from({ length: 5 }).map((_, i) => {
           const y = padding.top + (plotH * i) / 4;
           return (
@@ -102,7 +133,7 @@ function LineChart({
           );
         })}
 
-        {/* axes */}
+        {/* Y axis */}
         <line
           x1={padding.left}
           x2={padding.left}
@@ -111,6 +142,7 @@ function LineChart({
           stroke="#9ca3af"
           strokeWidth="1.5"
         />
+        {/* X axis */}
         <line
           x1={padding.left}
           x2={width - padding.right}
@@ -120,31 +152,50 @@ function LineChart({
           strokeWidth="1.5"
         />
 
-        {/* y ticks */}
+        {/* Y-axis ticks and labels */}
         {Array.from({ length: 5 }).map((_, i) => {
           const t = i / 4;
           const yVal = yMax - t * ySpan;
           const y = padding.top + t * plotH;
           return (
             <g key={`yt-${i}`}>
-              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
-                {formatNumber(yVal, yUnit)}
+              {/* tick mark */}
+              <line x1={padding.left - 4} x2={padding.left} y1={y} y2={y} stroke="#9ca3af" strokeWidth="1" />
+              {/* label */}
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#6b7280">
+                {formatAxisLabel(yVal, yUnit)}
               </text>
             </g>
           );
         })}
 
-        {/* labels */}
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" fill="#6b7280">
+        {/* X-axis ticks and labels */}
+        {xTicks.map((xVal, i) => {
+          const x = padding.left + ((xVal - xMin) / xSpan) * plotW;
+          return (
+            <g key={`xt-${i}`}>
+              {/* tick mark */}
+              <line x1={x} x2={x} y1={height - padding.bottom} y2={height - padding.bottom + 4} stroke="#9ca3af" strokeWidth="1" />
+              {/* label */}
+              <text x={x} y={height - padding.bottom + 16} textAnchor="middle" fontSize="10" fill="#6b7280">
+                {Number.isInteger(xVal) ? xVal : xVal.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Axis labels */}
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="11" fill="#4b5563" fontWeight="500">
           {xLabel}
         </text>
         <text
-          x={14}
+          x={16}
           y={height / 2}
           textAnchor="middle"
-          fontSize="12"
-          fill="#6b7280"
-          transform={`rotate(-90 14 ${height / 2})`}
+          fontSize="11"
+          fill="#4b5563"
+          fontWeight="500"
+          transform={`rotate(-90 16 ${height / 2})`}
         >
           {yLabel}
         </text>
@@ -174,7 +225,7 @@ function LineChart({
               />
               {/* end dot */}
               {pts.length > 0 && (
-                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" fill={color} />
+                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="4" fill={color} />
               )}
             </g>
           );
@@ -194,8 +245,8 @@ function BarChart({
   yLabel: string;
 }) {
   const width = 700;
-  const height = 220;
-  const padding = { left: 52, right: 16, top: 14, bottom: 34 };
+  const height = 260;
+  const padding = { left: 70, right: 20, top: 24, bottom: 44 };
 
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
@@ -219,9 +270,25 @@ function BarChart({
   const barW = categories.length ? plotW / categories.length : plotW;
 
   return (
-    <div className="w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[220px]">
-        {/* axes */}
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[400px]" style={{ height: 'auto', aspectRatio: `${width}/${height}` }}>
+        {/* horizontal grid lines */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const y = padding.top + (plotH * i) / 4;
+          return (
+            <line
+              key={i}
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={y}
+              y2={y}
+              stroke="#e5e7eb"
+              strokeWidth="1"
+            />
+          );
+        })}
+
+        {/* Y axis */}
         <line
           x1={padding.left}
           x2={padding.left}
@@ -230,6 +297,7 @@ function BarChart({
           stroke="#9ca3af"
           strokeWidth="1.5"
         />
+        {/* X axis */}
         <line
           x1={padding.left}
           x2={width - padding.right}
@@ -239,14 +307,30 @@ function BarChart({
           strokeWidth="1.5"
         />
 
-        {/* y label */}
+        {/* Y-axis ticks and labels */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const t = i / 4;
+          const yVal = yMax - t * yMax;
+          const y = padding.top + t * plotH;
+          return (
+            <g key={`yt-${i}`}>
+              <line x1={padding.left - 4} x2={padding.left} y1={y} y2={y} stroke="#9ca3af" strokeWidth="1" />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#6b7280">
+                {formatAxisLabel(yVal, yUnit)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Y-axis label */}
         <text
-          x={14}
+          x={16}
           y={height / 2}
           textAnchor="middle"
-          fontSize="12"
-          fill="#6b7280"
-          transform={`rotate(-90 14 ${height / 2})`}
+          fontSize="11"
+          fill="#4b5563"
+          fontWeight="500"
+          transform={`rotate(-90 16 ${height / 2})`}
         >
           {yLabel}
         </text>
@@ -254,8 +338,8 @@ function BarChart({
         {categories.map((cat, i) => {
           const v = values[i] ?? 0;
           const h = yMax ? (v / yMax) * plotH : 0;
-          const x = padding.left + i * barW + barW * 0.2;
-          const w = barW * 0.6;
+          const x = padding.left + i * barW + barW * 0.15;
+          const w = barW * 0.7;
           const y = padding.top + (plotH - (animate ? h : 0));
           const heightPx = animate ? h : 0;
           return (
@@ -265,16 +349,18 @@ function BarChart({
                 y={y}
                 width={w}
                 height={heightPx}
-                rx={6}
+                rx={4}
                 fill="#2563eb"
                 style={{ transition: 'all 700ms ease' }}
               />
-              <text x={x + w / 2} y={height - 12} textAnchor="middle" fontSize="11" fill="#6b7280">
+              <text x={x + w / 2} y={height - padding.bottom + 16} textAnchor="middle" fontSize="10" fill="#6b7280">
                 {cat}
               </text>
-              <text x={x + w / 2} y={y - 6} textAnchor="middle" fontSize="11" fill="#111827">
-                {formatNumber(v, yUnit)}
-              </text>
+              {animate && heightPx > 20 && (
+                <text x={x + w / 2} y={y - 6} textAnchor="middle" fontSize="10" fill="#111827" fontWeight="500">
+                  {formatAxisLabel(v, yUnit)}
+                </text>
+              )}
             </g>
           );
         })}
