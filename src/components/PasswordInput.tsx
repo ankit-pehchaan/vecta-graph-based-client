@@ -21,7 +21,7 @@ export default function PasswordInput({
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-semibold text-gray-700 mb-1.5">
+      <label htmlFor={id} className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
         {label}
       </label>
       <div className="relative">
@@ -30,15 +30,15 @@ export default function PasswordInput({
           type={showPassword ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full px-3 py-2.5 pr-10 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-            error ? 'border-red-500' : 'border-gray-300'
+          className={`w-full px-3 py-2.5 pr-10 bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+            error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
           }`}
           placeholder={placeholder}
         />
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
         >
           {showPassword ? (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

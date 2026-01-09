@@ -110,10 +110,10 @@ export default function InlineDocumentUpload({
   const documentTypes = Object.entries(DOCUMENT_TYPE_LABELS) as [DocumentType, string][];
 
   return (
-    <div className="max-w-md bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="max-w-md bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       {/* Document Type Selector */}
-      <div className="p-4 border-b border-gray-100">
-        <p className="text-sm font-medium text-gray-700 mb-3">Select document type</p>
+      <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select document type</p>
         <div className="flex flex-wrap gap-2">
           {documentTypes.map(([value, label]) => {
             const isSuggested = suggestedTypes.includes(value);
@@ -127,8 +127,8 @@ export default function InlineDocumentUpload({
                   isSelected
                     ? 'bg-blue-500 text-white'
                     : isSuggested
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                 } ${disabled || isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {label}
@@ -150,10 +150,10 @@ export default function InlineDocumentUpload({
           onClick={() => !disabled && !isUploading && fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             isDragOver
-              ? 'border-blue-500 bg-blue-50'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
               : selectedFile
-              ? 'border-green-500 bg-green-50'
-              : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+              ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
           } ${disabled || isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
           <input
@@ -167,7 +167,7 @@ export default function InlineDocumentUpload({
           {selectedFile ? (
             <div className="space-y-1">
               <svg
-                className="w-8 h-8 mx-auto text-green-600"
+                className="w-8 h-8 mx-auto text-green-600 dark:text-green-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -179,13 +179,13 @@ export default function InlineDocumentUpload({
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
-              <p className="text-xs text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{selectedFile.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
             </div>
           ) : (
             <div className="space-y-1">
               <svg
-                className="w-8 h-8 mx-auto text-gray-400"
+                className="w-8 h-8 mx-auto text-gray-400 dark:text-gray-500"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -197,17 +197,17 @@ export default function InlineDocumentUpload({
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Click to upload or drag and drop
               </p>
-              <p className="text-xs text-gray-400">PDF, CSV, TXT (max 10MB)</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">PDF, CSV, TXT (max 10MB)</p>
             </div>
           )}
         </div>
 
         {/* Error Message */}
         {error && (
-          <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -269,7 +269,7 @@ export default function InlineDocumentUpload({
           <button
             onClick={onDismiss}
             disabled={isUploading}
-            className="w-full py-2 px-4 rounded-lg text-gray-600 text-sm hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 px-4 rounded-lg text-gray-600 dark:text-gray-400 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             I'll share this information verbally instead
           </button>

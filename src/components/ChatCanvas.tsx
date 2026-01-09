@@ -183,8 +183,8 @@ export default function ChatCanvas({
       action.style === 'primary'
         ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
         : action.style === 'ghost'
-        ? 'bg-transparent border-gray-200 text-gray-700 hover:bg-gray-50'
-        : 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100';
+        ? 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+        : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50';
 
     return (
       <button
@@ -277,22 +277,22 @@ export default function ChatCanvas({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-black">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-200 px-6 py-4">
+      <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">Vecta</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Vecta</h2>
             {isConnected ? (
-              <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+              <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium rounded-full">
                 Active
               </span>
             ) : isConnecting ? (
-              <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
+              <span className="px-2.5 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium rounded-full">
                 Connecting...
               </span>
             ) : (
-              <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+              <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
                 Disconnected
               </span>
             )}
@@ -301,7 +301,7 @@ export default function ChatCanvas({
             {DEBUG_MODE && (
               <button
                 onClick={handleExportChat}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Export chat as PDF"
                 title="Export chat as PDF"
               >
@@ -314,7 +314,7 @@ export default function ChatCanvas({
             {onToggleSidebar && (
               <button
                 onClick={onToggleSidebar}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Toggle sidebar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,12 +333,12 @@ export default function ChatCanvas({
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
         {messages.length === 0 && !isConnecting && (
-          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+          <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm">
             Start a conversation — share a goal or choose an option above.
           </div>
         )}
         {isConnecting && messages.length === 0 && (
-          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+          <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm">
             Connecting to Vecta...
           </div>
         )}
@@ -346,17 +346,17 @@ export default function ChatCanvas({
           if (message.type === 'profile_update') {
             return (
               <div key={message.id} className="flex justify-center mb-4">
-                <div className="max-w-[80%] bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <div className="max-w-[80%] bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
                   <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="flex-1">
-                      <p className="text-xs font-semibold text-green-900 mb-1">Profile Updated</p>
-                      <div className="text-sm text-green-800 whitespace-pre-wrap">
+                      <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-1">Profile Updated</p>
+                      <div className="text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap">
                         {message.content.split('\n').map((line, idx) => (
                           <div key={idx} className="flex items-center gap-1">
-                            <span className="text-green-600">•</span>
+                            <span className="text-green-600 dark:text-green-400">•</span>
                             <span>{line}</span>
                           </div>
                         ))}
@@ -373,16 +373,16 @@ export default function ChatCanvas({
             return (
               <div key={message.id} className="flex justify-start mb-4">
                 <div className="max-w-[80%]">
-                  <div className="rounded-2xl px-4 py-3 bg-blue-50 text-gray-900 rounded-bl-sm border border-blue-200">
+                  <div className="rounded-2xl px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100 rounded-bl-sm border border-blue-200 dark:border-blue-800">
                     <div className="flex items-start gap-2 mb-2">
-                      <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <span className="text-xs font-semibold text-blue-900">Document Analysis</span>
+                      <span className="text-xs font-semibold text-blue-900 dark:text-blue-300">Document Analysis</span>
                     </div>
                     <div className="text-sm whitespace-pre-wrap mb-3">{message.content}</div>
                     {isPending && onDocumentConfirm && (
-                      <div className="flex gap-2 pt-2 border-t border-blue-200">
+                      <div className="flex gap-2 pt-2 border-t border-blue-200 dark:border-blue-700">
                         <button
                           onClick={() => handleDocumentConfirm(extractionId, true)}
                           className="flex-1 py-2 px-3 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-1"
@@ -423,9 +423,9 @@ export default function ChatCanvas({
             return (
               <div key={message.id} className="flex justify-start mb-4">
                 <div className="max-w-[80%]">
-                  <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 shadow-sm">
+                  <div className="rounded-2xl px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm">
                     {message.uiActions.hint && (
-                      <div className="text-xs text-gray-600 mb-2">{message.uiActions.hint}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">{message.uiActions.hint}</div>
                     )}
                     <div className="flex flex-wrap gap-2">
                       {actions.map(renderActionButton)}
@@ -441,7 +441,7 @@ export default function ChatCanvas({
               <div key={message.id} className="flex justify-start mb-4">
                 <div className="max-w-[90%]">
                   {/* Agent message */}
-                  <div className="rounded-2xl px-4 py-3 bg-gray-50 text-gray-900 rounded-bl-sm border border-gray-200 mb-3">
+                  <div className="rounded-2xl px-4 py-3 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-bl-sm border border-gray-200 dark:border-gray-700 mb-3">
                     <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                   </div>
                   {/* Inline upload widget */}
@@ -472,14 +472,14 @@ export default function ChatCanvas({
         {isAgentThinking && (
           <div className="flex justify-start mb-4">
             <div className="max-w-[80%]">
-              <div className="rounded-2xl px-4 py-3 bg-gray-50 text-gray-900 rounded-bl-sm border border-gray-200">
+              <div className="rounded-2xl px-4 py-3 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-bl-sm border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-xs text-gray-500">Agent is thinking...</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Agent is thinking...</span>
                 </div>
               </div>
             </div>
@@ -488,13 +488,13 @@ export default function ChatCanvas({
         {isProcessingDocument && (
           <div className="flex justify-start mb-4">
             <div className="max-w-[80%]">
-              <div className="rounded-2xl px-4 py-3 bg-amber-50 text-gray-900 rounded-bl-sm border border-amber-200">
+              <div className="rounded-2xl px-4 py-3 bg-amber-50 dark:bg-amber-900/30 text-gray-900 dark:text-gray-100 rounded-bl-sm border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  <span className="text-sm text-amber-800">{documentStatus || 'Processing document...'}</span>
+                  <span className="text-sm text-amber-800 dark:text-amber-200">{documentStatus || 'Processing document...'}</span>
                 </div>
               </div>
             </div>

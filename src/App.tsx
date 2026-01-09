@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
@@ -15,10 +16,10 @@ function AppRoutes() {
   // Show loading state while checking authentication on initial load
   if (initializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -58,13 +59,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <WebSocketProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </WebSocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <WebSocketProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </WebSocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

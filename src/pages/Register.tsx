@@ -75,8 +75,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="max-w-md w-full py-6 px-8 bg-gray-50 rounded-3xl shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black p-4">
+      <div className="max-w-md w-full py-6 px-8 bg-gray-50 dark:bg-gray-950 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-center gap-2 mb-4">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,12 +91,12 @@ export default function Register() {
           <span className="text-xl font-bold text-blue-500">Vecta</span>
         </div>
         <div className="text-center mb-5">
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Create Your Account</h1>
-          <p className="text-xs text-gray-500">Join Vecta to manage your finances securely.</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Create Your Account</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Join Vecta to manage your finances securely.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="name" className="block text-xs font-semibold text-gray-700 mb-1">
+            <label htmlFor="name" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
               Name
             </label>
             <input
@@ -104,8 +104,8 @@ export default function Register() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="Enter your name"
             />
@@ -113,7 +113,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <input
@@ -121,8 +121,8 @@ export default function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-3 py-2 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="Enter your email"
             />
@@ -148,7 +148,7 @@ export default function Register() {
           />
 
           {error && !errors.name && !errors.email && !errors.password && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-lg text-xs">
               {error}
             </div>
           )}
@@ -164,10 +164,10 @@ export default function Register() {
 
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-3 bg-gray-50 text-gray-500 font-medium">OR</span>
+            <span className="px-3 bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400 font-medium">OR</span>
           </div>
         </div>
 

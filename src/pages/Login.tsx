@@ -36,16 +36,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="max-w-md w-full p-8 bg-gray-50 rounded-3xl shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black p-4">
+      <div className="max-w-md w-full p-8 bg-gray-50 dark:bg-gray-950 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-800">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Welcome Back</h1>
-          <p className="text-sm text-gray-500">Sign in to your Vecta account.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Welcome Back</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your Vecta account.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
               Email
             </label>
             <input
@@ -53,8 +53,8 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-3 py-2.5 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2.5 bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="Enter your email"
             />
@@ -71,7 +71,7 @@ export default function Login() {
           />
 
           {error && !errors.email && !errors.password && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -87,17 +87,17 @@ export default function Login() {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-gray-50 text-gray-500 font-medium">OR</span>
+            <span className="px-4 bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400 font-medium">OR</span>
           </div>
         </div>
 
         <GoogleLoginButton mode="login" />
 
         <div className="text-center mt-5">
-          <span className="text-sm text-gray-600">Don't have an account? </span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Don't have an account? </span>
           <Link to="/register" className="text-sm text-blue-500 hover:text-blue-600 font-medium">
             Create an account
           </Link>

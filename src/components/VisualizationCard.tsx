@@ -392,16 +392,16 @@ export default function VisualizationCard({
   const yUnit = viz.chart?.y_unit;
 
   return (
-    <div className="rounded-2xl px-4 py-3 bg-white border border-gray-200 shadow-sm">
+    <div className="rounded-2xl px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <div className="text-xs font-semibold text-gray-500">Visualization</div>
-          <div className="text-base font-semibold text-gray-900 leading-tight">{viz.title}</div>
-          {viz.subtitle && <div className="text-xs text-gray-600 mt-0.5">{viz.subtitle}</div>}
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Visualization</div>
+          <div className="text-base font-semibold text-gray-900 dark:text-white leading-tight">{viz.title}</div>
+          {viz.subtitle && <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{viz.subtitle}</div>}
         </div>
       </div>
 
-      {viz.narrative && <div className="text-sm text-gray-800 mb-3">{viz.narrative}</div>}
+      {viz.narrative && <div className="text-sm text-gray-800 dark:text-gray-200 mb-3">{viz.narrative}</div>}
 
       {/* Legend / toggles */}
       {(viz.series || []).length > 1 && (
@@ -414,7 +414,7 @@ export default function VisualizationCard({
                 type="button"
                 onClick={() => setVisible((prev) => ({ ...prev, [s.name]: !isOn }))}
                 className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                  isOn ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-gray-50 border-gray-200 text-gray-500'
+                  isOn ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-400' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                 }`}
               >
                 {s.name}
@@ -426,22 +426,22 @@ export default function VisualizationCard({
 
       {/* Body */}
       {viz.table ? (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+        <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 {viz.table.columns.map((c) => (
-                  <th key={c} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  <th key={c} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                     {c}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {viz.table.rows.map((row, idx) => (
-                <tr key={idx} className="hover:bg-gray-50/60">
+                <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/60">
                   {row.map((cell, cIdx) => (
-                    <td key={cIdx} className="px-3 py-2 text-gray-900">
+                    <td key={cIdx} className="px-3 py-2 text-gray-900 dark:text-gray-100">
                       {cell === null || cell === undefined ? '' : String(cell)}
                     </td>
                   ))}
@@ -453,26 +453,26 @@ export default function VisualizationCard({
       ) : viz.scorecard ? (
         <div className="grid grid-cols-1 gap-2">
           {viz.scorecard.kpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+            <div key={kpi.label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-semibold text-gray-600">{kpi.label}</div>
-                <div className="text-sm font-semibold text-gray-900">{kpi.value === null ? '' : String(kpi.value)}</div>
+                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400">{kpi.label}</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">{kpi.value === null ? '' : String(kpi.value)}</div>
               </div>
-              {kpi.note && <div className="mt-1 text-xs text-gray-500">{kpi.note}</div>}
+              {kpi.note && <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{kpi.note}</div>}
             </div>
           ))}
         </div>
       ) : viz.timeline ? (
         <div className="space-y-2">
           {viz.timeline.events.map((e, idx) => (
-            <div key={idx} className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-              <div className="text-sm font-medium text-gray-900">{e.label}</div>
-              {e.detail && <div className="text-xs text-gray-600 mt-0.5">{e.detail}</div>}
+            <div key={idx} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{e.label}</div>
+              {e.detail && <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{e.detail}</div>}
             </div>
           ))}
         </div>
       ) : viz.chart ? (
-        <div className="bg-gray-50 border border-gray-100 rounded-xl p-2">
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-2">
           {viz.chart.kind === 'line' || viz.chart.kind === 'area' ? (
             <LineChart
               series={visibleSeries}
@@ -493,7 +493,7 @@ export default function VisualizationCard({
               key={idx}
               type="button"
               onClick={() => onExploreNext?.(t)}
-              className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 transition-colors"
+              className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               aria-label={t}
               title={t}
             >
@@ -505,8 +505,8 @@ export default function VisualizationCard({
 
       {viz.assumptions && viz.assumptions.length > 0 && (
         <details className="mt-3">
-          <summary className="text-xs text-gray-600 cursor-pointer select-none">Assumptions</summary>
-          <ul className="mt-2 text-xs text-gray-600 list-disc list-inside space-y-1">
+          <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">Assumptions</summary>
+          <ul className="mt-2 text-xs text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
             {viz.assumptions.map((a, idx) => (
               <li key={idx}>{a}</li>
             ))}

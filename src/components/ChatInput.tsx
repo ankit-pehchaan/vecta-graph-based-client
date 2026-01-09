@@ -37,7 +37,7 @@ export default function ChatInput({ onSend, onDocumentUpload, disabled = false, 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black p-4">
       <div className="flex items-end gap-2 relative">
         {/* Document Upload Popup */}
         {showUpload && onDocumentUpload && (
@@ -54,7 +54,7 @@ export default function ChatInput({ onSend, onDocumentUpload, disabled = false, 
             type="button"
             onClick={() => setShowUpload(!showUpload)}
             disabled={disabled}
-            className="flex-shrink-0 rounded-lg border border-gray-300 p-2.5 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-shrink-0 rounded-lg border border-gray-300 dark:border-gray-600 p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Upload document"
             title="Upload document"
           >
@@ -71,7 +71,7 @@ export default function ChatInput({ onSend, onDocumentUpload, disabled = false, 
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
+          className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-950 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
           style={{ minHeight: '44px', maxHeight: '120px' }}
         />
         <button
