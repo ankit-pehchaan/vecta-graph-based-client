@@ -1,300 +1,350 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import {
-  createWebSocketUrl,
-  type WebSocketMessage,
-  type GreetingMessage,
-  type AgentResponseMessage,
-  type ProfileUpdateMessage,
-  type IntelligenceSummaryMessage,
-  type ErrorMessage,
-  type UserMessage,
-  type DocumentUploadMessage,
-  type DocumentConfirmMessage,
-  type DocumentProcessingMessage,
-  type DocumentExtractionMessage,
-  type VisualizationMessage,
-  type DocumentUploadPromptMessage,
-  type DocumentType,
-} from '../services/api';
+"use client";
 
-export type MessageHandler = {
-  onGreeting?: (message: GreetingMessage) => void;
-  onAgentResponse?: (message: AgentResponseMessage) => void;
-  onProfileUpdate?: (message: ProfileUpdateMessage) => void;
-  onIntelligenceSummary?: (message: IntelligenceSummaryMessage) => void;
-  onError?: (message: ErrorMessage) => void;
-  onDocumentProcessing?: (message: DocumentProcessingMessage) => void;
-  onDocumentExtraction?: (message: DocumentExtractionMessage) => void;
-  onDocumentUploadPrompt?: (message: DocumentUploadPromptMessage) => void;
-  onVisualization?: (message: VisualizationMessage) => void;
-};
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  ChatMessage,
+  GoalState,
+  WSIncomingMessage,
+  WSOutgoingMessage,
+} from "@/types/websocket";
+import { useApp } from "@/contexts/AppContext";
 
-interface UseWebSocketOptions {
-  enabled?: boolean;
-  handlers?: MessageHandler;
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-  onError?: (error: Event) => void;
-}
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
 
-interface UseWebSocketReturn {
-  sendMessage: (content: string) => void;
-  sendDocumentUpload: (s3Url: string, documentType: DocumentType, filename: string) => void;
-  sendDocumentConfirm: (extractionId: string, confirmed: boolean, corrections?: Record<string, unknown>) => void;
-  isConnected: boolean;
-  isConnecting: boolean;
-  error: string | null;
-  reconnect: () => void;
-  disconnect: () => void;
-}
+export function useWebSocket() {
+  const {
+    sessionId,
+    setSessionId,
+    status,
+    setStatus,
+    messages,
+    setMessages,
+    goalState,
+    setGoalState,
+    collectedData,
+    setCollectedData,
+    currentNode,
+    setCurrentNode,
+    clearSession,
+    hasExistingSession,
+  } = useApp();
 
-export function useWebSocket(
-  options: UseWebSocketOptions
-): UseWebSocketReturn {
-  const { enabled = true, handlers, onConnect, onDisconnect, onError } = options;
-  
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const isManualDisconnectRef = useRef(false);
-  const maxReconnectAttempts = 5;
-  const baseReconnectDelay = 1000; // 1 second
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isResumingRef = useRef<boolean>(false);
+  const isConnectingRef = useRef<boolean>(false); // Prevent multiple simultaneous connections
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
-  // Use ref for handlers to avoid stale closures - MUST be defined before handleMessage
-  const handlersRef = useRef(handlers);
-  useEffect(() => {
-    handlersRef.current = handlers;
-  }, [handlers]);
+  const addMessage = useCallback(
+    (message: ChatMessage) => {
+      setMessages((prev) => [...prev, message]);
+    },
+    [setMessages]
+  );
 
-  // handleMessage MUST be defined before connect
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    const currentHandlers = handlersRef.current;
-    switch (message.type) {
-      case 'greeting':
-        currentHandlers?.onGreeting?.(message as GreetingMessage);
-        break;
-      case 'agent_response':
-        currentHandlers?.onAgentResponse?.(message as AgentResponseMessage);
-        break;
-      case 'profile_update':
-        currentHandlers?.onProfileUpdate?.(message as ProfileUpdateMessage);
-        break;
-      case 'intelligence_summary':
-        currentHandlers?.onIntelligenceSummary?.(message as IntelligenceSummaryMessage);
-        break;
-      case 'error':
-        currentHandlers?.onError?.(message as ErrorMessage);
-        break;
-      case 'document_processing':
-        currentHandlers?.onDocumentProcessing?.(message as DocumentProcessingMessage);
-        break;
-      case 'document_extraction':
-        currentHandlers?.onDocumentExtraction?.(message as DocumentExtractionMessage);
-        break;
-      case 'visualization':
-        currentHandlers?.onVisualization?.(message as VisualizationMessage);
-        break;
-      case 'document_upload_prompt':
-        currentHandlers?.onDocumentUploadPrompt?.(message as DocumentUploadPromptMessage);
-        break;
-      default:
-        console.warn('Unknown message type:', message.type);
-    }
-  }, []);
+  const handleMessage = useCallback(
+    (event: MessageEvent) => {
+      try {
+        const data: WSIncomingMessage = JSON.parse(event.data);
 
-  const connect = useCallback(() => {
-    if (!enabled) {
-      return;
-    }
+        switch (data.type) {
+          case "session_start":
+            setSessionId(data.session_id);
+            // Only show "Session started" message for new sessions, not resumes
+            if (!isResumingRef.current) {
+              addMessage({
+                id: `system-${Date.now()}`,
+                type: "system",
+                content: "Session started. Vecta is ready to help you.",
+                timestamp: new Date(),
+                metadata: { session_id: data.session_id },
+              });
+            }
+            isResumingRef.current = false; // Reset after handling
+            break;
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return; // Already connected
-    }
+          case "question":
+            if (data.question) {
+              addMessage({
+                id: `bot-${Date.now()}`,
+                type: "bot",
+                content: data.question,
+                timestamp: new Date(),
+                node_name: data.node_name,
+                extracted_data: data.extracted_data,
+                upcoming_nodes: data.upcoming_nodes,
+                all_collected_data: data.all_collected_data,
+                metadata: { complete: data.complete || false },
+              });
+            }
+            if (data.all_collected_data) {
+              setCollectedData(data.all_collected_data);
+            }
+            if (data.node_name) {
+              setCurrentNode(data.node_name);
+            }
+            break;
 
-    // Also check if connecting
-    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
-      return; // Already connecting
-    }
+          case "complete":
+            // Legacy handler - most completion is now handled via WSQuestion.complete
+            addMessage({
+              id: `system-${Date.now()}`,
+              type: "system",
+              content: data.visited_all
+                ? "All information has been gathered."
+                : `Moving to ${data.next_node}`,
+              timestamp: new Date(),
+              metadata: {
+                next_node: data.next_node || undefined,
+                complete: data.visited_all,
+              },
+            });
+            break;
 
-    setIsConnecting(true);
-    setError(null);
+          case "error":
+            addMessage({
+              id: `error-${Date.now()}`,
+              type: "error",
+              content: data.message,
+              timestamp: new Date(),
+            });
+            break;
 
-    try {
-      // Reset manual disconnect flag when attempting new connection
-      isManualDisconnectRef.current = false;
+          case "calculation":
+            addMessage({
+              id: `calc-${Date.now()}`,
+              type: "calculation",
+              content: data.message,
+              timestamp: new Date(),
+              calculation: {
+                calculation_type: data.calculation_type,
+                result: data.result,
+                can_calculate: data.can_calculate,
+                missing_data: data.missing_data,
+                message: data.message,
+                data_used: data.data_used,
+              },
+            });
+            break;
+
+          case "visualization":
+            addMessage({
+              id: `viz-${Date.now()}`,
+              type: "visualization",
+              content: data.description,
+              timestamp: new Date(),
+              visualization: {
+                chart_type: data.chart_type,
+                data: data.data,
+                title: data.title,
+                description: data.description,
+                config: data.config,
+              },
+            });
+            break;
+
+          case "mode_switch":
+            addMessage({
+              id: `mode-${Date.now()}`,
+              type: "system",
+              content: `Mode: ${data.mode}`,
+              timestamp: new Date(),
+            });
+            break;
+
+          case "traversal_paused":
+            addMessage({
+              id: `paused-${Date.now()}`,
+              type: "system",
+              content: data.message,
+              timestamp: new Date(),
+            });
+            break;
+
+          case "resume_prompt":
+            addMessage({
+              id: `resume-${Date.now()}`,
+              type: "bot",
+              content: data.message,
+              timestamp: new Date(),
+            });
+            break;
+
+          case "goal_qualification":
+            addMessage({
+              id: `goal-qual-${Date.now()}`,
+              type: "goal_qualification",
+              content: data.question,
+              timestamp: new Date(),
+              metadata: {
+                goal_id: data.goal_id,
+                goal_description: data.goal_description || undefined,
+              },
+            });
+            break;
+
+          case "scenario_question":
+            // Scenario-based question for inferred goals
+            addMessage({
+              id: `scenario-${Date.now()}`,
+              type: "scenario_question",
+              content: data.question,
+              timestamp: new Date(),
+              metadata: {
+                goal_id: data.goal_id,
+                goal_description: data.goal_description || undefined,
+                turn: data.turn,
+                max_turns: data.max_turns,
+                goal_confirmed: data.goal_confirmed || undefined,
+                goal_rejected: data.goal_rejected || undefined,
+              },
+            });
+            break;
+
+          case "goal_update":
+            setGoalState({
+              qualified_goals: data.qualified_goals,
+              possible_goals: data.possible_goals,
+              rejected_goals: data.rejected_goals,
+            });
+            break;
+        }
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    },
+    [addMessage, setSessionId, setCollectedData, setCurrentNode, setGoalState]
+  );
+
+  const connect = useCallback(
+    (initialContext?: string, existingSessionId?: string) => {
+      // Prevent multiple simultaneous connection attempts
+      if (isConnectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
+        return;
+      }
+
+      // If already connecting or connected, don't start another connection
+      if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+        return;
+      }
+
+      isConnectingRef.current = true;
+      setStatus("connecting");
       
-      const url = createWebSocketUrl('/api/v1/advice/ws');
-      const ws = new WebSocket(url);
+      // Track if we're resuming to suppress duplicate "Session started" messages
+      isResumingRef.current = !!existingSessionId;
+      
+      // Connect with session_id as path parameter if resuming existing session
+      // Backend expects: /ws/{session_id} for existing sessions, /ws for new sessions
+      const wsUrl = existingSessionId 
+        ? `${WS_URL}/${existingSessionId}`
+        : WS_URL;
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
-        setIsConnected(true);
-        setIsConnecting(false);
-        setError(null);
-        reconnectAttemptsRef.current = 0;
-        onConnect?.();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log('[WebSocket] Message received:', message.type, message);
-          handleMessage(message);
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
+        isConnectingRef.current = false;
+        setStatus("connected");
+        setReconnectAttempts(0);
+        
+        // Only send initial context for new sessions (not resuming)
+        if (!existingSessionId) {
+          ws.send(
+            JSON.stringify({
+              initial_context: initialContext || null,
+              user_goal: initialContext || null,
+            })
+          );
         }
       };
 
-      ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        // Don't set error state immediately for connection refused, as onclose will handle reconnection
-        if (ws.readyState === WebSocket.OPEN) {
-          setError('WebSocket connection error');
-        }
-        onError?.(event);
+      ws.onmessage = handleMessage;
+
+      ws.onclose = () => {
+        isConnectingRef.current = false;
+        setStatus("disconnected");
+        wsRef.current = null;
       };
 
-      ws.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
-        setIsConnected(false);
-        setIsConnecting(false);
-        onDisconnect?.();
-
-        // Don't reconnect if it was a manual disconnect or if enabled is false
-        if (isManualDisconnectRef.current || !enabled) {
-          return;
-        }
-
-        // Attempt to reconnect if not a normal closure and enabled
-        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts && enabled) {
-          const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
-          reconnectAttemptsRef.current++;
-          
-          reconnectTimeoutRef.current = window.setTimeout(() => {
-            if (enabled && !isManualDisconnectRef.current) {
-              connect();
-            }
-          }, delay);
-        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          setError('Failed to reconnect. Please refresh the page.');
-        }
+      ws.onerror = (error) => {
+        isConnectingRef.current = false;
+        console.error("WebSocket error:", error);
+        setStatus("error");
       };
 
       wsRef.current = ws;
-    } catch (err) {
-      console.error('Error creating WebSocket:', err);
-      setError('Failed to create WebSocket connection');
-      setIsConnecting(false);
-    }
-  }, [enabled, onConnect, onDisconnect, onError, handleMessage]);
-
-  const sendMessage = useCallback((content: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const message: UserMessage = {
-        type: 'user_message',
-        content,
-        timestamp: new Date().toISOString(),
-      };
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected. Cannot send message.');
-      setError('Not connected. Please wait for connection.');
-    }
-  }, []);
-
-  const sendDocumentUpload = useCallback((s3Url: string, documentType: DocumentType, filename: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const message: DocumentUploadMessage = {
-        type: 'document_upload',
-        s3_url: s3Url,
-        document_type: documentType,
-        filename,
-        timestamp: new Date().toISOString(),
-      };
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected. Cannot send document upload.');
-      setError('Not connected. Please wait for connection.');
-    }
-  }, []);
-
-  const sendDocumentConfirm = useCallback((extractionId: string, confirmed: boolean, corrections?: Record<string, unknown>) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const message: DocumentConfirmMessage = {
-        type: 'document_confirm',
-        extraction_id: extractionId,
-        confirmed,
-        corrections,
-        timestamp: new Date().toISOString(),
-      };
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected. Cannot send document confirmation.');
-      setError('Not connected. Please wait for connection.');
-    }
-  }, []);
+    },
+    [handleMessage, setStatus]
+  );
 
   const disconnect = useCallback(() => {
-    // Mark as manual disconnect to prevent reconnection
-    isManualDisconnectRef.current = true;
-    
-    // Clear any pending reconnection attempts
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
     }
-    
-    // Close WebSocket connection if it exists
-    if (wsRef.current) {
-      // Remove event handlers to prevent memory leaks
-      wsRef.current.onopen = null;
-      wsRef.current.onmessage = null;
-      wsRef.current.onerror = null;
-      wsRef.current.onclose = null;
-      
-      // Close connection if not already closed
-      if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
-        wsRef.current.close(1000, 'User disconnected');
+    wsRef.current?.close();
+    wsRef.current = null;
+    setStatus("disconnected");
+  }, [setStatus]);
+
+  const sendMessage = useCallback((answer: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      // Add user message to chat
+      addMessage({
+        id: `user-${Date.now()}`,
+        type: "user",
+        content: answer,
+        timestamp: new Date(),
+      });
+
+      // Send to server
+      const message: WSOutgoingMessage = { type: "answer", answer };
+      wsRef.current.send(JSON.stringify(message));
+    }
+  }, [addMessage]);
+
+  // Start a new session (clears existing state)
+  const startSession = useCallback(
+    (userGoal?: string, forceNew = false) => {
+      // Clear state for new sessions
+      if (forceNew || !hasExistingSession) {
+        clearSession();
       }
-      wsRef.current = null;
+      connect(userGoal);
+    },
+    [connect, clearSession, hasExistingSession]
+  );
+
+  // Resume an existing session (keeps state, reconnects WebSocket)
+  const resumeSession = useCallback(() => {
+    // Only resume if we have a sessionId, are disconnected, and not already connecting
+    if (sessionId && status === "disconnected" && !isConnectingRef.current) {
+      connect(undefined, sessionId);
     }
-    
-    setIsConnected(false);
-    setIsConnecting(false);
-    reconnectAttemptsRef.current = 0;
+  }, [sessionId, status, connect]);
+
+  // Cleanup on unmount - only close WebSocket, don't clear state
+  useEffect(() => {
+    return () => {
+      // Just close WebSocket, state is preserved in localStorage
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
   }, []);
 
-  const reconnect = useCallback(() => {
-    disconnect();
-    reconnectAttemptsRef.current = 0;
-    connect();
-  }, [disconnect, connect]);
-
-  useEffect(() => {
-    if (enabled) {
-      connect();
-    } else {
-      // Disconnect if disabled or no token
-      disconnect();
-    }
-
-    return () => {
-      disconnect();
-    };
-  }, [enabled]); // Removed connect/disconnect from deps to avoid infinite loops
-
   return {
+    messages,
+    status,
+    sessionId,
+    goalState,
+    collectedData,
+    currentNode,
     sendMessage,
-    sendDocumentUpload,
-    sendDocumentConfirm,
-    isConnected,
-    isConnecting,
-    error,
-    reconnect,
+    startSession,
+    resumeSession,
     disconnect,
+    hasExistingSession,
+    clearSession,
   };
 }
