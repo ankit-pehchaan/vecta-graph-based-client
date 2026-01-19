@@ -8,6 +8,7 @@ import VerifyOTP from './pages/VerifyOTP';
 import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import FinancialProfile from './pages/FinancialProfile';
+import VisualizationHistory from './pages/VisualizationHistory';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function AppRoutes() {
@@ -50,6 +51,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FinancialProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/visualizations"
+        element={
+          <ProtectedRoute>
+            <VisualizationHistory />
           </ProtectedRoute>
         }
       />

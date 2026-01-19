@@ -460,7 +460,9 @@ export interface FinancialProfile {
   updated_at?: string;
   created_at?: string;
   // Computed fields (serialized by backend)
-  cash_balance?: number; // Total cash in bank accounts/savings (computed from assets)
+  cash_balance?: number; // Total liquid cash
+  total_savings?: number; // Savings amount
+  total_emergency_fund?: number; // Emergency fund amount
   total_assets?: number; // Total value of all assets
   total_liabilities?: number; // Total value of all liabilities
   total_superannuation?: number; // Total super balance
@@ -500,6 +502,63 @@ export async function getFinancialProfile(): Promise<FinancialProfile | null> {
     console.error('Error fetching financial profile:', error);
     return null;
   }
+}
+
+// Visualization History Types
+export interface VisualizationHistoryItem {
+  id: number;
+  viz_id: string;
+  viz_type: string;
+  calc_kind: string | null;
+  title: string;
+  subtitle: string | null;
+  helpfulness_score: number | null;
+  was_viewed: boolean;
+  was_interacted: boolean;
+  parent_viz_id: string | null;
+  created_at: string;
+}
+
+export interface VisualizationHistoryResponse {
+  visualizations: VisualizationHistoryItem[];
+  count: number;
+  limit: number;
+  offset: number;
+}
+
+export interface VisualizationDetailResponse extends VisualizationHistoryItem {
+  narrative: string | null;
+  parameters: Record<string, unknown> | null;
+  data: VisualizationMessage;
+}
+
+// Visualization History API
+export async function getVisualizationHistory(
+  limit: number = 20,
+  offset: number = 0
+): Promise<VisualizationHistoryResponse> {
+  return apiClient<VisualizationHistoryResponse>(
+    `/api/v1/visualizations/history?limit=${limit}&offset=${offset}`,
+    { method: 'GET' }
+  );
+}
+
+export async function getVisualizationDetail(
+  vizId: string
+): Promise<VisualizationDetailResponse> {
+  return apiClient<VisualizationDetailResponse>(
+    `/api/v1/visualizations/${vizId}`,
+    { method: 'GET' }
+  );
+}
+
+export async function trackVisualizationInteraction(
+  vizId: string
+): Promise<void> {
+  await apiClient(
+    `/api/v1/visualizations/${vizId}/interact`,
+    { method: 'POST' }
+  );
 }
 
 export { ApiError };

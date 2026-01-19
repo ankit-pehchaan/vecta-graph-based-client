@@ -113,9 +113,27 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
 
               {localProfile.cash_balance !== undefined && localProfile.cash_balance !== null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm">Cash Balance</span>
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">Liquid Cash</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(localProfile.cash_balance)}
+                  </span>
+                </div>
+              )}
+
+              {localProfile.total_savings !== undefined && localProfile.total_savings !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">Savings</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {formatCurrency(localProfile.total_savings)}
+                  </span>
+                </div>
+              )}
+
+              {localProfile.total_emergency_fund !== undefined && localProfile.total_emergency_fund !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">Emergency Fund</span>
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">
+                    {formatCurrency(localProfile.total_emergency_fund)}
                   </span>
                 </div>
               )}
@@ -311,17 +329,32 @@ export default function ProfilePanel({ profile, onProfileUpdate }: ProfilePanelP
               {localProfile.cash_balance !== undefined && localProfile.cash_balance !== null ? (
                 <>
                   <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Cash Balance</span>
+                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Total Liquid Cash</span>
                     <span className="font-semibold text-blue-900 dark:text-blue-400 text-lg">
                       {formatCurrency(localProfile.cash_balance)}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Total cash in bank accounts and savings
-                  </p>
                 </>
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No cash balance recorded yet.</p>
+              )}
+
+              {localProfile.total_savings !== undefined && localProfile.total_savings !== null && (
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Savings</span>
+                  <span className="font-semibold text-green-900 dark:text-green-400 text-lg">
+                    {formatCurrency(localProfile.total_savings)}
+                  </span>
+                </div>
+              )}
+
+              {localProfile.total_emergency_fund !== undefined && localProfile.total_emergency_fund !== null && (
+                <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
+                  <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Emergency Fund</span>
+                  <span className="font-semibold text-amber-900 dark:text-amber-400 text-lg">
+                    {formatCurrency(localProfile.total_emergency_fund)}
+                  </span>
+                </div>
               )}
 
               {localProfile.superannuation && localProfile.superannuation.length > 0 && (
