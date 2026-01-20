@@ -50,20 +50,42 @@ function buildLinePath(points: Array<{ x: number; y: number }>) {
   return `M ${first.x} ${first.y} ` + rest.map((p) => `L ${p.x} ${p.y}`).join(' ');
 }
 
+function buildAreaPath(points: Array<{ x: number; y: number }>, baselineY: number) {
+  if (points.length === 0) return '';
+  const [first, ...rest] = points;
+  const linePath = `M ${first.x} ${first.y} ` + rest.map((p) => `L ${p.x} ${p.y}`).join(' ');
+  const lastPt = points[points.length - 1];
+  return `${linePath} L ${lastPt.x} ${baselineY} L ${first.x} ${baselineY} Z`;
+}
+
+// Color configurations for different chart types
+const LINE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+// Monte Carlo specific colors - gradient from optimistic (green) to conservative (red)
+const MONTE_CARLO_COLORS: Record<string, { fill: string; stroke: string; strokeWidth: number }> = {
+  'Optimistic (90th)': { fill: 'rgba(34, 197, 94, 0.12)', stroke: '#22c55e', strokeWidth: 1.5 },
+  'Above Average (75th)': { fill: 'rgba(34, 197, 94, 0.18)', stroke: '#16a34a', strokeWidth: 1.5 },
+  'Expected (50th)': { fill: 'rgba(37, 99, 235, 0.25)', stroke: '#2563eb', strokeWidth: 3 },
+  'Below Average (25th)': { fill: 'rgba(249, 115, 22, 0.18)', stroke: '#f97316', strokeWidth: 1.5 },
+  'Conservative (10th)': { fill: 'rgba(239, 68, 68, 0.12)', stroke: '#ef4444', strokeWidth: 1.5 },
+};
+
 function LineChart({
   series,
   yUnit,
   xLabel,
   yLabel,
+  showEndValues = false,
 }: {
   series: VizSeries[];
   yUnit?: string;
   xLabel: string;
   yLabel: string;
+  showEndValues?: boolean;
 }) {
   const width = 700;
   const height = 260;
-  const padding = { left: 70, right: 20, top: 20, bottom: 44 };
+  const padding = { left: 70, right: showEndValues ? 70 : 20, top: 20, bottom: 44 };
 
   const { mappedSeries, xMin, xMax, yMin, yMax, xTicks } = useMemo(() => {
     const allX: number[] = [];
@@ -105,8 +127,6 @@ function LineChart({
   const plotH = height - padding.top - padding.bottom;
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
-
-  const colors = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   return (
     <div className="w-full overflow-x-auto">
@@ -207,7 +227,10 @@ function LineChart({
             y: padding.top + (1 - (p.y - yMin) / ySpan) * plotH,
           }));
           const d = buildLinePath(pts);
-          const color = colors[idx % colors.length];
+          const color = LINE_COLORS[idx % LINE_COLORS.length];
+          const lastPoint = s._points[s._points.length - 1];
+          const lastPtScreen = pts[pts.length - 1];
+
           return (
             <g key={s.name}>
               <path
@@ -225,12 +248,376 @@ function LineChart({
               />
               {/* end dot */}
               {pts.length > 0 && (
-                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="4" fill={color} />
+                <circle cx={lastPtScreen.x} cy={lastPtScreen.y} r="4" fill={color} />
+              )}
+              {/* end value label */}
+              {showEndValues && pts.length > 0 && lastPoint && (
+                <text
+                  x={lastPtScreen.x + 8}
+                  y={lastPtScreen.y + 4}
+                  fontSize="10"
+                  fontWeight="500"
+                  fill={color}
+                  textAnchor="start"
+                >
+                  {formatAxisLabel(lastPoint.y, yUnit)}
+                </text>
               )}
             </g>
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+function AreaChart({
+  series,
+  yUnit,
+  xLabel,
+  yLabel,
+}: {
+  series: VizSeries[];
+  yUnit?: string;
+  xLabel: string;
+  yLabel: string;
+}) {
+  const width = 700;
+  const height = 320;
+  const padding = { left: 70, right: 80, top: 20, bottom: 44 };
+
+  const { mappedSeries, xMin, xMax, yMin, yMax, xTicks } = useMemo(() => {
+    const allX: number[] = [];
+    const allY: number[] = [];
+
+    const mapped = series.map((s) => {
+      const pts: Array<{ xRaw: string | number; x: number; y: number }> = [];
+      s.data.forEach((p) => {
+        const xNum = asNumericX(p.x);
+        if (xNum === null) return;
+        if (!Number.isFinite(p.y)) return;
+        pts.push({ xRaw: p.x, x: xNum, y: p.y });
+        allX.push(xNum);
+        allY.push(p.y);
+      });
+      pts.sort((a, b) => a.x - b.x);
+      return { ...s, _points: pts };
+    });
+
+    const xMinV = allX.length ? Math.min(...allX) : 0;
+    const xMaxV = allX.length ? Math.max(...allX) : 1;
+    const yMinV = allY.length ? Math.min(0, Math.min(...allY)) : 0;
+    const yMaxV = allY.length ? Math.max(...allY) * 1.05 : 1; // 5% headroom for labels
+
+    const xRange = xMaxV - xMinV;
+    const xTickCount = Math.min(xRange + 1, 11);
+    const xTicksArr: number[] = [];
+    for (let i = 0; i < xTickCount; i++) {
+      xTicksArr.push(xMinV + (xRange * i) / (xTickCount - 1 || 1));
+    }
+
+    return { mappedSeries: mapped, xMin: xMinV, xMax: xMaxV, yMin: yMinV, yMax: yMaxV, xTicks: xTicksArr };
+  }, [series]);
+
+  const plotW = width - padding.left - padding.right;
+  const plotH = height - padding.top - padding.bottom;
+  const xSpan = xMax - xMin || 1;
+  const ySpan = yMax - yMin || 1;
+  const baselineY = height - padding.bottom;
+
+  // Determine if this is a Monte Carlo chart (has specific series names)
+  const isMonteCarloChart = series.some(s => s.name in MONTE_CARLO_COLORS);
+
+  // Sort series so that higher percentiles render first (as background)
+  const sortedSeries = useMemo(() => {
+    if (!isMonteCarloChart) return mappedSeries;
+    const order = ['Optimistic (90th)', 'Above Average (75th)', 'Expected (50th)', 'Below Average (25th)', 'Conservative (10th)'];
+    return [...mappedSeries].sort((a, b) => {
+      const aIdx = order.indexOf(a.name);
+      const bIdx = order.indexOf(b.name);
+      return aIdx - bIdx;
+    });
+  }, [mappedSeries, isMonteCarloChart]);
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[400px]" style={{ height: 'auto', aspectRatio: `${width}/${height}` }}>
+        <defs>
+          {/* Gradient definitions for area fills */}
+          {sortedSeries.map((s, idx) => {
+            const mcColor = MONTE_CARLO_COLORS[s.name];
+            const baseColor = mcColor?.stroke || LINE_COLORS[idx % LINE_COLORS.length];
+            return (
+              <linearGradient key={`grad-${idx}`} id={`areaGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={baseColor} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={baseColor} stopOpacity="0.05" />
+              </linearGradient>
+            );
+          })}
+        </defs>
+
+        {/* horizontal grid lines */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const y = padding.top + (plotH * i) / 4;
+          return (
+            <line
+              key={i}
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={y}
+              y2={y}
+              stroke="#e5e7eb"
+              strokeWidth="1"
+            />
+          );
+        })}
+
+        {/* Y axis */}
+        <line x1={padding.left} x2={padding.left} y1={padding.top} y2={baselineY} stroke="#9ca3af" strokeWidth="1.5" />
+        {/* X axis */}
+        <line x1={padding.left} x2={width - padding.right} y1={baselineY} y2={baselineY} stroke="#9ca3af" strokeWidth="1.5" />
+
+        {/* Y-axis ticks and labels */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const t = i / 4;
+          const yVal = yMax - t * ySpan;
+          const y = padding.top + t * plotH;
+          return (
+            <g key={`yt-${i}`}>
+              <line x1={padding.left - 4} x2={padding.left} y1={y} y2={y} stroke="#9ca3af" strokeWidth="1" />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#6b7280">
+                {formatAxisLabel(yVal, yUnit)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis ticks and labels */}
+        {xTicks.map((xVal, i) => {
+          const x = padding.left + ((xVal - xMin) / xSpan) * plotW;
+          return (
+            <g key={`xt-${i}`}>
+              <line x1={x} x2={x} y1={baselineY} y2={baselineY + 4} stroke="#9ca3af" strokeWidth="1" />
+              <text x={x} y={baselineY + 16} textAnchor="middle" fontSize="10" fill="#6b7280">
+                {Number.isInteger(xVal) ? xVal : xVal.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Axis labels */}
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="11" fill="#4b5563" fontWeight="500">
+          {xLabel}
+        </text>
+        <text x={16} y={height / 2} textAnchor="middle" fontSize="11" fill="#4b5563" fontWeight="500" transform={`rotate(-90 16 ${height / 2})`}>
+          {yLabel}
+        </text>
+
+        {/* Area fills (render first, in order from highest to lowest) */}
+        {sortedSeries.map((s, idx) => {
+          const pts = s._points.map((p) => ({
+            x: padding.left + ((p.x - xMin) / xSpan) * plotW,
+            y: padding.top + (1 - (p.y - yMin) / ySpan) * plotH,
+          }));
+          if (pts.length === 0) return null;
+
+          const mcColor = MONTE_CARLO_COLORS[s.name];
+          const fillColor = mcColor?.fill || `url(#areaGrad-${idx})`;
+          const areaPath = buildAreaPath(pts, baselineY);
+
+          return (
+            <path
+              key={`area-${s.name}`}
+              d={areaPath}
+              fill={fillColor}
+              stroke="none"
+              style={{ opacity: 0.9 }}
+            />
+          );
+        })}
+
+        {/* Lines (render on top of areas) */}
+        {sortedSeries.map((s, idx) => {
+          const pts = s._points.map((p) => ({
+            x: padding.left + ((p.x - xMin) / xSpan) * plotW,
+            y: padding.top + (1 - (p.y - yMin) / ySpan) * plotH,
+          }));
+          if (pts.length === 0) return null;
+
+          const mcColor = MONTE_CARLO_COLORS[s.name];
+          const strokeColor = mcColor?.stroke || LINE_COLORS[idx % LINE_COLORS.length];
+          const strokeWidth = mcColor?.strokeWidth || 2;
+          const isExpected = s.name === 'Expected (50th)';
+          const lastPoint = s._points[s._points.length - 1];
+          const lastPtScreen = pts[pts.length - 1];
+          const d = buildLinePath(pts);
+
+          return (
+            <g key={`line-${s.name}`}>
+              <path
+                d={d}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={isExpected ? {} : { strokeDasharray: isExpected ? 'none' : '4,2' }}
+              />
+              {/* end dot */}
+              <circle cx={lastPtScreen.x} cy={lastPtScreen.y} r={isExpected ? 5 : 3} fill={strokeColor} />
+              {/* end value label */}
+              {lastPoint && (
+                <text
+                  x={lastPtScreen.x + 8}
+                  y={lastPtScreen.y + 4}
+                  fontSize={isExpected ? '11' : '9'}
+                  fontWeight={isExpected ? '600' : '500'}
+                  fill={strokeColor}
+                  textAnchor="start"
+                >
+                  {formatAxisLabel(lastPoint.y, yUnit)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Legend for Monte Carlo */}
+      {isMonteCarloChart && (
+        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2 px-2">
+          {sortedSeries.map((s, idx) => {
+            const mcColor = MONTE_CARLO_COLORS[s.name];
+            const color = mcColor?.stroke || LINE_COLORS[idx % LINE_COLORS.length];
+            const isExpected = s.name === 'Expected (50th)';
+            return (
+              <div key={s.name} className="flex items-center gap-1.5 text-xs">
+                <div
+                  className="w-3 h-0.5 flex-shrink-0"
+                  style={{
+                    backgroundColor: color,
+                    height: isExpected ? '3px' : '2px',
+                  }}
+                />
+                <span className={`${isExpected ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'}`}>
+                  {s.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PieChart({
+  series,
+}: {
+  series: VizSeries[];
+}) {
+  const width = 400;
+  const height = 300;
+  const centerX = width / 2;
+  const centerY = height / 2 - 20;
+  const radius = Math.min(width, height) / 2 - 60;
+
+  const data = series[0]?.data || [];
+  const total = data.reduce((sum, p) => sum + (p.y || 0), 0);
+
+  const colors = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
+  const slices: Array<{ path: string; color: string; label: string; value: number; percent: number; midAngle: number }> = [];
+  let currentAngle = -Math.PI / 2; // Start from top
+
+  data.forEach((point, idx) => {
+    const percent = total > 0 ? (point.y / total) * 100 : 0;
+    const sliceAngle = (percent / 100) * Math.PI * 2;
+    const endAngle = currentAngle + sliceAngle;
+
+    // Calculate path for pie slice
+    const x1 = centerX + radius * Math.cos(currentAngle);
+    const y1 = centerY + radius * Math.sin(currentAngle);
+    const x2 = centerX + radius * Math.cos(endAngle);
+    const y2 = centerY + radius * Math.sin(endAngle);
+    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+    const path = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    const midAngle = currentAngle + sliceAngle / 2;
+
+    slices.push({
+      path,
+      color: colors[idx % colors.length],
+      label: String(point.x),
+      value: point.y,
+      percent,
+      midAngle,
+    });
+
+    currentAngle = endAngle;
+  });
+
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setAnimate(true), 50);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full mx-auto" style={{ height: 'auto', maxWidth: '400px', aspectRatio: `${width}/${height}` }}>
+        {/* Pie slices */}
+        <g>
+          {slices.map((slice, idx) => (
+            <path
+              key={idx}
+              d={slice.path}
+              fill={slice.color}
+              stroke="white"
+              strokeWidth="2"
+              style={{
+                transform: animate ? 'scale(1)' : 'scale(0)',
+                transformOrigin: `${centerX}px ${centerY}px`,
+                transition: `transform 500ms ease-out ${idx * 50}ms`,
+              }}
+            />
+          ))}
+        </g>
+
+        {/* Percentage labels on slices */}
+        {animate && slices.map((slice, idx) => {
+          if (slice.percent < 6) return null; // Skip tiny slices
+          const labelRadius = radius * 0.65;
+          const x = centerX + labelRadius * Math.cos(slice.midAngle);
+          const y = centerY + labelRadius * Math.sin(slice.midAngle);
+          return (
+            <text
+              key={`label-${idx}`}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="12"
+              fontWeight="600"
+              fill="white"
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+            >
+              {slice.percent.toFixed(0)}%
+            </text>
+          );
+        })}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-3 px-2">
+        {slices.map((slice, idx) => (
+          <div key={idx} className="flex items-center gap-2 text-xs">
+            <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: slice.color }} />
+            <span className="text-gray-800 dark:text-gray-200 font-medium">{slice.label}</span>
+            <span className="text-gray-500 dark:text-gray-400">({slice.percent.toFixed(1)}%)</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -268,6 +655,15 @@ function BarChart({
   const plotW = width - padding.left - padding.right;
   const plotH = height - padding.top - padding.bottom;
   const barW = categories.length ? plotW / categories.length : plotW;
+
+  // Color bars based on category name for balance sheet
+  const getBarColor = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('asset')) return '#2563eb'; // Blue
+    if (cat.includes('super')) return '#16a34a'; // Green
+    if (cat.includes('liabilit') || cat.includes('debt')) return '#f97316'; // Orange
+    return '#2563eb'; // Default blue
+  };
 
   return (
     <div className="w-full overflow-x-auto">
@@ -342,6 +738,8 @@ function BarChart({
           const w = barW * 0.7;
           const y = padding.top + (plotH - (animate ? h : 0));
           const heightPx = animate ? h : 0;
+          const barColor = getBarColor(cat);
+
           return (
             <g key={cat}>
               <rect
@@ -350,7 +748,7 @@ function BarChart({
                 width={w}
                 height={heightPx}
                 rx={4}
-                fill="#2563eb"
+                fill={barColor}
                 style={{ transition: 'all 700ms ease' }}
               />
               <text x={x + w / 2} y={height - padding.bottom + 16} textAnchor="middle" fontSize="10" fill="#6b7280">
@@ -391,6 +789,11 @@ export default function VisualizationCard({
 
   const yUnit = viz.chart?.y_unit;
 
+  // Determine if this is a Monte Carlo chart
+  const isMonteCarloChart = viz.series?.some(s =>
+    s.name.includes('Optimistic') || s.name.includes('Expected') || s.name.includes('Conservative')
+  );
+
   return (
     <div className="rounded-2xl px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -403,8 +806,8 @@ export default function VisualizationCard({
 
       {viz.narrative && <div className="text-sm text-gray-800 dark:text-gray-200 mb-3">{viz.narrative}</div>}
 
-      {/* Legend / toggles */}
-      {(viz.series || []).length > 1 && (
+      {/* Legend / toggles - hide for Monte Carlo (it has its own legend) and pie charts */}
+      {(viz.series || []).length > 1 && !isMonteCarloChart && viz.chart?.kind !== 'pie' && (
         <div className="flex flex-wrap gap-2 mb-2">
           {(viz.series || []).map((s) => {
             const isOn = visible[s.name] !== false;
@@ -473,12 +876,22 @@ export default function VisualizationCard({
         </div>
       ) : viz.chart ? (
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-2">
-          {viz.chart.kind === 'line' || viz.chart.kind === 'area' ? (
+          {viz.chart.kind === 'pie' ? (
+            <PieChart series={visibleSeries} />
+          ) : viz.chart.kind === 'area' ? (
+            <AreaChart
+              series={visibleSeries}
+              yUnit={yUnit}
+              xLabel={viz.chart.x_label}
+              yLabel={viz.chart.y_label}
+            />
+          ) : viz.chart.kind === 'line' ? (
             <LineChart
               series={visibleSeries}
               yUnit={yUnit}
               xLabel={viz.chart.x_label}
               yLabel={viz.chart.y_label}
+              showEndValues={visibleSeries.length <= 2}
             />
           ) : (
             <BarChart series={visibleSeries} yUnit={yUnit} yLabel={viz.chart.y_label} />
@@ -516,5 +929,3 @@ export default function VisualizationCard({
     </div>
   );
 }
-
-
