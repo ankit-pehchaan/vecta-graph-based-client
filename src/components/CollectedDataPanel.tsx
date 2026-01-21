@@ -156,7 +156,7 @@ function formatValue(value: any, depth: number = 0): string {
 
     return Object.entries(value)
       .map(([k, v]) => {
-        const formattedKey = k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+      const formattedKey = k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
         return `${formattedKey}: ${formatValue(v, depth + 1)}`;
       })
       .join(" | ");
