@@ -140,33 +140,33 @@ function formatFieldName(fieldName: string): string {
     .join(" ");
 }
 
-function formatValue(value: any): string {
-  if (value === null || value === undefined) {
-    return "-";
+function formatValue(value: any, depth: number = 0): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "None";
+    return value.map((v) => formatValue(v, depth + 1)).join(", ");
   }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
+
   if (typeof value === "object") {
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(", ") : "None";
-    }
-    if (Object.keys(value).length === 0) {
-      return "None";
-    }
-    const entries = Object.entries(value).map(([k, v]) => {
-      const formattedKey = k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-      const formattedValue = typeof v === "number" ? formatCurrency(v) : String(v);
-      return `${formattedKey}: ${formattedValue}`;
-    });
-    return entries.join(" | ");
+    const keys = Object.keys(value);
+    if (keys.length === 0) return "None";
+    if (depth >= 3) return "[…]";
+
+    return Object.entries(value)
+      .map(([k, v]) => {
+        const formattedKey = k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        return `${formattedKey}: ${formatValue(v, depth + 1)}`;
+      })
+      .join(" | ");
   }
+
   if (typeof value === "number") {
-    if (value >= 100) {
-      return formatCurrency(value);
-    }
+    if (value >= 100) return formatCurrency(value);
     return String(value);
   }
+
   return String(value);
 }
 

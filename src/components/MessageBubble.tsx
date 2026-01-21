@@ -175,39 +175,71 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
   // Visualization message
   if (message.type === "visualization" && message.visualization) {
     const viz = message.visualization;
+    const charts = viz.charts && viz.charts.length > 0
+      ? viz.charts
+      : [
+          {
+            chart_type: viz.chart_type,
+            data: viz.data,
+            title: viz.title,
+            description: viz.description,
+            config: viz.config,
+          },
+        ];
+    const firstChart = charts[0];
     return (
       <div className="flex justify-start my-4 animate-fade-in-up">
         <VectaAvatar size="sm" />
         <div className="ml-3 max-w-[90%] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-start justify-between">
             <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 text-lg">{viz.title}</h3>
-              <p className="text-slate-500 text-sm mt-1">{viz.description}</p>
+              <h3 className="font-semibold text-slate-900 text-lg">{firstChart.title}</h3>
+              <p className="text-slate-500 text-sm mt-1">{firstChart.description}</p>
             </div>
             <BookmarkButton
-              title={viz.title}
-              description={viz.description}
-              chartType={viz.chart_type}
-              data={viz.data}
-              config={viz.config}
+              title={firstChart.title}
+              description={firstChart.description}
+              chartType={firstChart.chart_type}
+              data={firstChart.data}
+              config={firstChart.config}
             />
           </div>
-          <div className="p-4 bg-slate-50/50">
-            <div className="bg-white rounded-xl p-4 border border-slate-100">
-              <Chart
-                chartType={viz.chart_type}
-                data={viz.data}
-                title={viz.title}
-                config={viz.config}
-              />
-            </div>
+          <div className="p-4 bg-slate-50/50 space-y-4">
+            {charts.map((chart, index) => (
+              <div key={`${chart.chart_type}-${index}`} className="bg-white rounded-xl p-4 border border-slate-100">
+                <Chart
+                  chartType={chart.chart_type}
+                  data={chart.data}
+                  title={chart.title}
+                  config={chart.config}
+                />
+              </div>
+            ))}
+            {(viz.calculation_type || viz.inputs) && (
+              <div className="bg-white rounded-xl p-4 border border-slate-100 text-xs text-slate-500 space-y-1">
+                {viz.calculation_type && (
+                  <div>
+                    <span className="font-semibold text-slate-700">Calculation:</span>{" "}
+                    {viz.calculation_type.replace(/_/g, " ")}
+                  </div>
+                )}
+                {viz.inputs && Object.keys(viz.inputs).length > 0 && (
+                  <div>
+                    <span className="font-semibold text-slate-700">Inputs:</span>{" "}
+                    {Object.entries(viz.inputs)
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join(", ")}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="px-4 py-2 bg-slate-50 flex items-center justify-between text-xs text-slate-400">
             <span className="flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              <span className="capitalize">{viz.chart_type.replace(/_/g, " ")}</span>
+              <span className="capitalize">{firstChart.chart_type.replace(/_/g, " ")}</span>
             </span>
             {renderTimestamp()}
           </div>

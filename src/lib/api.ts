@@ -3,8 +3,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export interface SessionSummary {
   user_goal: string | null;
   goal_state: {
-    qualified_goals: Record<string, any>;
-    possible_goals: Record<string, any>;
+    qualified_goals: Array<Record<string, any>>;
+    possible_goals: Array<Record<string, any>>;
     rejected_goals: string[];
   } | null;
   nodes_collected: string[];

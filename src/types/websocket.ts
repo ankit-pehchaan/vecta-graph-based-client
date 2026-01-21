@@ -14,7 +14,6 @@ export type WSMessageType =
   | "traversal_paused"
   | "resume_prompt"
   | "goal_qualification"
-  | "goal_update"
   | "scenario_question";
 
 export interface WSMessage {
@@ -36,6 +35,7 @@ export interface WSQuestion extends WSMessage {
   all_collected_data?: Record<string, Record<string, any>>;  // All data across all nodes
   planned_target_node?: string | null;
   planned_target_field?: string | null;
+  goal_state?: GoalState;
 }
 
 export interface WSComplete extends WSMessage {
@@ -70,11 +70,20 @@ export interface WSCalculation extends WSMessage {
 
 export interface WSVisualization extends WSMessage {
   type: "visualization";
+  calculation_type?: string;
+  inputs?: Record<string, any>;
   chart_type: string;
   data: Record<string, any>;
   title: string;
   description: string;
   config: Record<string, any>;
+  charts?: Array<{
+    chart_type: string;
+    data: Record<string, any>;
+    title: string;
+    description: string;
+    config: Record<string, any>;
+  }>;
 }
 
 export interface WSModeSwitch extends WSMessage {
@@ -88,13 +97,7 @@ export interface WSGoalQualification extends WSMessage {
   question: string;
   goal_id: string;
   goal_description?: string | null;
-}
-
-export interface WSGoalUpdate extends WSMessage {
-  type: "goal_update";
-  qualified_goals: Array<Record<string, any>>;
-  possible_goals: Array<Record<string, any>>;
-  rejected_goals: string[];
+  goal_state?: GoalState;
 }
 
 export interface WSTraversalPaused extends WSMessage {
@@ -117,6 +120,7 @@ export interface WSScenarioQuestion extends WSMessage {
   max_turns: number;
   goal_confirmed?: boolean | null;
   goal_rejected?: boolean | null;
+  goal_state?: GoalState;
 }
 
 export type WSIncomingMessage = 
@@ -130,7 +134,6 @@ export type WSIncomingMessage =
   | WSTraversalPaused
   | WSResumePrompt
   | WSGoalQualification
-  | WSGoalUpdate
   | WSScenarioQuestion;
 
 export type WSOutgoingMessage = WSAnswer | { initial_context?: string; user_goal?: string };
@@ -167,11 +170,20 @@ export interface ChatMessage {
   };
   // Visualization data
   visualization?: {
+    calculation_type?: string;
+    inputs?: Record<string, any>;
     chart_type: string;
     data: Record<string, any>;
     title: string;
     description: string;
     config: Record<string, any>;
+    charts?: Array<{
+      chart_type: string;
+      data: Record<string, any>;
+      title: string;
+      description: string;
+      config: Record<string, any>;
+    }>;
   };
 }
 

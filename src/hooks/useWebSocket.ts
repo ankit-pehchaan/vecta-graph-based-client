@@ -83,6 +83,9 @@ export function useWebSocket() {
             if (data.node_name) {
               setCurrentNode(data.node_name);
             }
+            if (data.goal_state) {
+              setGoalState(data.goal_state);
+            }
             break;
 
           case "complete":
@@ -134,11 +137,14 @@ export function useWebSocket() {
               content: data.description,
               timestamp: new Date(),
               visualization: {
+                calculation_type: data.calculation_type,
+                inputs: data.inputs,
                 chart_type: data.chart_type,
                 data: data.data,
                 title: data.title,
                 description: data.description,
                 config: data.config,
+                charts: data.charts,
               },
             });
             break;
@@ -181,6 +187,9 @@ export function useWebSocket() {
                 goal_description: data.goal_description || undefined,
               },
             });
+            if (data.goal_state) {
+              setGoalState(data.goal_state);
+            }
             break;
 
           case "scenario_question":
@@ -199,15 +208,11 @@ export function useWebSocket() {
                 goal_rejected: data.goal_rejected || undefined,
               },
             });
+            if (data.goal_state) {
+              setGoalState(data.goal_state);
+            }
             break;
 
-          case "goal_update":
-            setGoalState({
-              qualified_goals: data.qualified_goals,
-              possible_goals: data.possible_goals,
-              rejected_goals: data.rejected_goals,
-            });
-            break;
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);

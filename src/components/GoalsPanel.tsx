@@ -212,7 +212,10 @@ export default function GoalsPanel({
   );
 }
 
-function formatGoalId(id: string): string {
+function formatGoalId(id: string | null | undefined): string {
+  if (!id || typeof id !== "string") {
+    return "Unknown";
+  }
   return id
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
