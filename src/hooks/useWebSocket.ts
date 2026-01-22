@@ -34,6 +34,7 @@ export function useWebSocket() {
   const isResumingRef = useRef<boolean>(false);
   const isConnectingRef = useRef<boolean>(false); // Prevent multiple simultaneous connections
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
 
   const addMessage = useCallback(
     (message: ChatMessage) => {
@@ -46,6 +47,9 @@ export function useWebSocket() {
     (event: MessageEvent) => {
       try {
         const data: WSIncomingMessage = JSON.parse(event.data);
+        
+        // Response received - re-enable input
+        setIsAwaitingResponse(false);
 
         switch (data.type) {
           case "session_start":
@@ -267,6 +271,7 @@ export function useWebSocket() {
       ws.onclose = () => {
         isConnectingRef.current = false;
         setStatus("disconnected");
+        setIsAwaitingResponse(false); // Re-enable input on disconnect
         wsRef.current = null;
       };
 
@@ -274,6 +279,7 @@ export function useWebSocket() {
         isConnectingRef.current = false;
         console.error("WebSocket error:", error);
         setStatus("error");
+        setIsAwaitingResponse(false); // Re-enable input on error
       };
 
       wsRef.current = ws;
@@ -292,6 +298,9 @@ export function useWebSocket() {
 
   const sendMessage = useCallback((answer: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      // Disable input while waiting for response
+      setIsAwaitingResponse(true);
+      
       // Add user message to chat
       addMessage({
         id: `user-${Date.now()}`,
@@ -351,5 +360,6 @@ export function useWebSocket() {
     disconnect,
     hasExistingSession,
     clearSession,
+    isAwaitingResponse,
   };
 }

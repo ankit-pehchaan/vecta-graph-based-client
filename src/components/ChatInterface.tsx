@@ -21,6 +21,7 @@ export default function ChatInterface() {
     resumeSession,
     hasExistingSession,
     clearSession,
+    isAwaitingResponse,
   } = useWebSocket();
 
   const [userGoal, setUserGoal] = useState("");
@@ -69,9 +70,11 @@ export default function ChatInterface() {
   };
 
   const handleNewSession = () => {
+    // Clear localStorage completely and reload
+    localStorage.removeItem("vecta-session");
+    localStorage.removeItem("vecta-bookmarks");
     clearSession();
-    setShowGoalInput(true);
-    setUserGoal("");
+    window.location.reload();
   };
 
   const handleSendMessage = (message: string) => {
@@ -258,6 +261,20 @@ export default function ChatInterface() {
               />
             ))}
 
+            {/* Loading indicator while awaiting response */}
+            {isAwaitingResponse && (
+              <div className="flex justify-start my-3 animate-fade-in">
+                <div className="flex items-center gap-3 bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                  </div>
+                  <span className="text-sm text-slate-500">Vecta is thinking...</span>
+                </div>
+              </div>
+            )}
+
             {isSessionComplete && (
               <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl flex items-center gap-3 animate-fade-in-up">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -281,9 +298,12 @@ export default function ChatInterface() {
           <div className="max-w-3xl mx-auto">
             <InputBox
               onSend={handleSendMessage}
-              disabled={!isConnected}
+              disabled={!isConnected || isAwaitingResponse}
+              isLoading={isAwaitingResponse}
               placeholder={
-                isSessionComplete
+                isAwaitingResponse
+                  ? "Vecta is thinking..."
+                  : isSessionComplete
                   ? "Ask for visualizations, projections, or more details..."
                   : isConnected
                   ? "Type your message to Vecta..."
