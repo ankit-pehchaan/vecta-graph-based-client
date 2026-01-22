@@ -11,7 +11,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    href: "/",
+    href: "/chat",
     label: "Chat",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       {/* Logo Section */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-slate-700/50">
-        <Link href="/" className="flex items-center gap-3 overflow-hidden">
+        <Link href="/chat" className="flex items-center gap-3 overflow-hidden">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/25">
             <span className="text-white font-bold text-lg">V</span>
           </div>

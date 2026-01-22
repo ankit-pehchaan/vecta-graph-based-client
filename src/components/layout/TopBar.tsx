@@ -9,7 +9,7 @@ interface TopBarProps {
 }
 
 const pageTitle: Record<string, string> = {
-  "/": "Chat with Vecta",
+  "/chat": "Chat with Vecta",
   "/goals": "Financial Goals",
   "/profile": "Financial Profile",
   "/history": "Life History",
