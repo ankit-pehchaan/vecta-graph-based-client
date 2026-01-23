@@ -9,7 +9,7 @@ import type {
 } from "@/types/websocket";
 import { useApp } from "@/contexts/AppContext";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://backend.vectatech.com.au/ws";
 
 export function useWebSocket() {
   const {

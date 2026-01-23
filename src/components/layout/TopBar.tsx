@@ -18,7 +18,7 @@ const pageTitle: Record<string, string> = {
 
 export default function TopBar({ sessionId, status, sidebarCollapsed }: TopBarProps) {
   const pathname = usePathname();
-  const title = pageTitle[pathname] || "Dashboard";
+  const title = (pathname && pageTitle[pathname]) || "Dashboard";
 
   const statusConfig = {
     connecting: {
