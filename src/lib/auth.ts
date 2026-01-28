@@ -22,28 +22,13 @@ export interface RegisterVerifyPayload {
   otp: string;
 }
 
-function generateCsrfToken(): string {
-  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes)
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-  }
-  return Math.random().toString(36).slice(2);
-}
-
 export function getCsrfToken(): string {
   if (typeof window === "undefined") {
     return "";
   }
-  const existing = localStorage.getItem("csrf_token");
-  if (existing) {
-    return existing;
-  }
-  const token = generateCsrfToken();
-  localStorage.setItem("csrf_token", token);
-  return token;
+  // Read CSRF token from cookie set by backend (CSRF_COOKIE_HTTP_ONLY=false)
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
 }
 
 async function request<T>(path: string, options: RequestInit): Promise<ApiResponse<T>> {
