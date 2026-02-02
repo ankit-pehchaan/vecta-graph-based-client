@@ -16,6 +16,7 @@ interface GoalsPanelProps {
   qualifiedGoals: Goal[];
   possibleGoals: Goal[];
   rejectedGoals: string[];
+  deferredGoals: Goal[];
   onToggle?: () => void;
   isVisible?: boolean;
 }
@@ -24,10 +25,11 @@ export default function GoalsPanel({
   qualifiedGoals,
   possibleGoals,
   rejectedGoals,
+  deferredGoals,
   onToggle,
   isVisible = true,
 }: GoalsPanelProps) {
-  const [activeTab, setActiveTab] = useState<"qualified" | "possible">("qualified");
+  const [activeTab, setActiveTab] = useState<"qualified" | "possible" | "deferred">("qualified");
 
   if (!isVisible) {
     return (
@@ -85,6 +87,16 @@ export default function GoalsPanel({
         >
           Detected ({possibleGoals.length})
         </button>
+        <button
+          onClick={() => setActiveTab("deferred")}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+            activeTab === "deferred"
+              ? "bg-white text-slate-600 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Later ({deferredGoals.length})
+        </button>
       </div>
 
       {/* Goals List */}
@@ -126,7 +138,7 @@ export default function GoalsPanel({
                 ))
             )}
           </>
-        ) : (
+        ) : activeTab === "possible" ? (
           <>
             {possibleGoals.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
@@ -177,6 +189,60 @@ export default function GoalsPanel({
                         ))}
                         {goal.deduced_from.length > 3 && (
                           <span className="text-[10px] text-amber-600 font-medium">
+                            +{goal.deduced_from.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            {deferredGoals.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium">No deferred goals</p>
+                <p className="text-xs mt-1">Goals to revisit will appear here</p>
+              </div>
+            ) : (
+              deferredGoals.map((goal) => (
+                <div
+                  key={goal.goal_id}
+                  className="bg-white border border-slate-200 rounded-xl p-4 transition-all hover:shadow-md"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-slate-800 text-sm">
+                      {formatGoalId(goal.goal_id)}
+                    </h3>
+                  </div>
+                  {goal.description && (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {goal.description}
+                    </p>
+                  )}
+                  {goal.deduced_from && goal.deduced_from.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100 mt-3">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5 font-semibold">
+                        Detected From
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {goal.deduced_from.slice(0, 3).map((trigger: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] bg-slate-50 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[120px]"
+                          >
+                            {trigger}
+                          </span>
+                        ))}
+                        {goal.deduced_from.length > 3 && (
+                          <span className="text-[10px] text-slate-500 font-medium">
                             +{goal.deduced_from.length - 3}
                           </span>
                         )}

@@ -9,7 +9,7 @@ interface Goal {
   type?: string;
   confidence?: number;
   deduced_from?: string[];
-  status?: "qualified" | "possible" | "rejected";
+  status?: "qualified" | "possible" | "rejected" | "deferred";
   [key: string]: any;
 }
 
@@ -42,6 +42,11 @@ export default function GoalModal({ goal, onClose }: GoalModalProps) {
     rejected: {
       label: "Rejected Goal",
       color: "bg-slate-400",
+      bg: "bg-slate-50",
+    },
+    deferred: {
+      label: "Deferred Goal",
+      color: "bg-slate-500",
       bg: "bg-slate-50",
     },
   };

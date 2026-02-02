@@ -36,6 +36,10 @@ export interface WSQuestion extends WSMessage {
   planned_target_node?: string | null;
   planned_target_field?: string | null;
   goal_state?: GoalState;
+  goal_details?: {
+    goal_id: string;
+    missing_fields?: string[];
+  };
 }
 
 export interface WSComplete extends WSMessage {
@@ -158,6 +162,10 @@ export interface ChatMessage {
     max_turns?: number;
     goal_confirmed?: boolean;
     goal_rejected?: boolean;
+    goal_details?: {
+      goal_id: string;
+      missing_fields?: string[];
+    };
   };
   // Calculation data
   calculation?: {
@@ -191,4 +199,5 @@ export interface GoalState {
   qualified_goals: Array<Record<string, any>>;
   possible_goals: Array<Record<string, any>>;
   rejected_goals: string[];
+  deferred_goals: Array<Record<string, any>>;
 }

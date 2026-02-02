@@ -22,6 +22,14 @@ export interface RegisterVerifyPayload {
   otp: string;
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function generateCsrfToken(): string {
   if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
     const bytes = new Uint8Array(16);
@@ -36,6 +44,11 @@ function generateCsrfToken(): string {
 export function getCsrfToken(): string {
   if (typeof window === "undefined") {
     return "";
+  }
+  const cookieToken = getCookie("csrf_token");
+  if (cookieToken) {
+    localStorage.setItem("csrf_token", cookieToken);
+    return cookieToken;
   }
   const existing = localStorage.getItem("csrf_token");
   if (existing) {
