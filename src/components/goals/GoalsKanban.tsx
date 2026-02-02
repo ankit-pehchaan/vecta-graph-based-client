@@ -16,6 +16,7 @@ interface GoalsKanbanProps {
   qualifiedGoals: Goal[];
   possibleGoals: Goal[];
   rejectedGoals: string[];
+  deferredGoals: Goal[];
   onGoalClick?: (goal: Goal) => void;
 }
 
@@ -23,10 +24,11 @@ export default function GoalsKanban({
   qualifiedGoals,
   possibleGoals,
   rejectedGoals,
+  deferredGoals,
   onGoalClick,
 }: GoalsKanbanProps) {
   return (
-    <div className="grid grid-cols-3 gap-6 h-full overflow-hidden">
+    <div className="grid grid-cols-4 gap-6 h-full overflow-hidden">
       {/* Active Goals Column */}
       <div className="flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-purple-50">
@@ -128,6 +130,41 @@ export default function GoalsKanban({
                 goal={{ goal_id: goalId }}
                 status="rejected"
                 onClick={() => onGoalClick?.({ goal_id: goalId, status: "rejected" })}
+              />
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Deferred Goals Column */}
+      <div className="flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-slate-500" />
+              <h3 className="font-semibold text-slate-800">Deferred Goals</h3>
+            </div>
+            <span className="text-sm font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded-full">
+              {deferredGoals.length}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">Revisit later</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {deferredGoals.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <svg className="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm">No deferred goals</p>
+            </div>
+          ) : (
+            deferredGoals.map((goal) => (
+              <GoalCard
+                key={goal.goal_id}
+                goal={goal}
+                status="deferred"
+                onClick={() => onGoalClick?.({ ...goal, status: "deferred" })}
               />
             ))
           )}

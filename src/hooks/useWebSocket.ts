@@ -36,6 +36,15 @@ export function useWebSocket() {
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
 
+  const normalizeGoalState = useCallback((state: GoalState) => {
+    return {
+      qualified_goals: state.qualified_goals || [],
+      possible_goals: state.possible_goals || [],
+      rejected_goals: state.rejected_goals || [],
+      deferred_goals: (state as any).deferred_goals || [],
+    };
+  }, []);
+
   const addMessage = useCallback(
     (message: ChatMessage) => {
       setMessages((prev) => [...prev, message]);
@@ -78,7 +87,10 @@ export function useWebSocket() {
                 extracted_data: data.extracted_data,
                 upcoming_nodes: data.upcoming_nodes,
                 all_collected_data: data.all_collected_data,
-                metadata: { complete: data.complete || false },
+                metadata: {
+                  complete: data.complete || false,
+                  goal_details: data.goal_details,
+                },
               });
             }
             if (data.all_collected_data) {
@@ -88,7 +100,7 @@ export function useWebSocket() {
               setCurrentNode(data.node_name);
             }
             if (data.goal_state) {
-              setGoalState(data.goal_state);
+              setGoalState(normalizeGoalState(data.goal_state));
             }
             break;
 
@@ -192,7 +204,7 @@ export function useWebSocket() {
               },
             });
             if (data.goal_state) {
-              setGoalState(data.goal_state);
+              setGoalState(normalizeGoalState(data.goal_state));
             }
             break;
 
@@ -213,7 +225,7 @@ export function useWebSocket() {
               },
             });
             if (data.goal_state) {
-              setGoalState(data.goal_state);
+              setGoalState(normalizeGoalState(data.goal_state));
             }
             break;
 
@@ -222,7 +234,7 @@ export function useWebSocket() {
         console.error("Failed to parse WebSocket message:", error);
       }
     },
-    [addMessage, setSessionId, setCollectedData, setCurrentNode, setGoalState]
+    [addMessage, setSessionId, setCollectedData, setCurrentNode, setGoalState, normalizeGoalState]
   );
 
   const connect = useCallback(

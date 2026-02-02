@@ -125,6 +125,9 @@ export default function CollectedDataPanel({ allData, currentNode }: CollectedDa
 }
 
 function formatNodeName(nodeName: string): string {
+  if (nodeName === "Retirement") {
+    return "Super";
+  }
   return nodeName
     .replace(/_/g, " ")
     .split(" ")

@@ -13,6 +13,7 @@ interface MessageBubbleProps {
 export default function MessageBubble({ message, onGoalAction }: MessageBubbleProps) {
   const [formattedTime, setFormattedTime] = useState<string>("");
   const [mounted, setMounted] = useState(false);
+  const goalDetails = message.metadata?.goal_details;
 
   useEffect(() => {
     setMounted(true);
@@ -31,6 +32,24 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
         {formattedTime}
       </span>
     );
+
+  const formatGoalId = (id?: string) => {
+    if (!id) return "Goal";
+    return id
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const formatNodeLabel = (node?: string) => {
+    if (!node) return "";
+    if (node === "Retirement") return "Super";
+    return node
+      .replace(/_/g, " ")
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
 
   // System message
   if (message.type === "system" || message.type === "mode_switch" || message.type === "traversal_paused") {
@@ -109,6 +128,43 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
                 Skip for now
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Scenario framing message
+  if (message.type === "scenario_question") {
+    const goalLabel =
+      message.metadata?.goal_description ||
+      message.metadata?.goal_id ||
+      "Inferred goal";
+    const turn = message.metadata?.turn;
+    const maxTurns = message.metadata?.max_turns;
+    return (
+      <div className="flex justify-start my-4 animate-fade-in-up">
+        <VectaAvatar size="sm" />
+        <div className="ml-3 max-w-[80%] bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-amber-100/60 flex items-center gap-2 bg-white/60">
+            <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-semibold text-amber-900 text-sm">Scenario framing</span>
+            {renderTimestamp()}
+          </div>
+          <div className="p-5">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700 mb-3">
+              <span className="bg-white/80 border border-amber-200 rounded-full px-3 py-1">
+                {goalLabel}
+              </span>
+              {turn && maxTurns && (
+                <span className="bg-white/80 border border-amber-200 rounded-full px-3 py-1">
+                  Turn {turn} of {maxTurns}
+                </span>
+              )}
+            </div>
+            <p className="text-slate-800 font-medium">{message.content}</p>
           </div>
         </div>
       </div>
@@ -266,11 +322,23 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
           {message.content}
         </div>
         
-        {message.node_name && !isUser && (
+        {!isUser && (message.node_name || goalDetails) && (
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded-md">
-              {message.node_name}
-            </span>
+            {goalDetails?.goal_id && (
+              <>
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider bg-amber-50 px-2 py-1 rounded-md">
+                  Goal details
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {formatGoalId(goalDetails.goal_id)}
+                </span>
+              </>
+            )}
+            {message.node_name && (
+              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded-md">
+                {formatNodeLabel(message.node_name)}
+              </span>
+            )}
             {message.upcoming_nodes && message.upcoming_nodes.length > 0 && (
               <span className="text-[10px] text-slate-400 flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -325,6 +325,7 @@ export default function ChatInterface() {
             qualifiedGoals={goalState.qualified_goals as any[]}
             possibleGoals={goalState.possible_goals as any[]}
             rejectedGoals={goalState.rejected_goals}
+            deferredGoals={goalState.deferred_goals as any[]}
             onToggle={() => setShowRightPanel(!showRightPanel)}
             isVisible={showRightPanel}
           />

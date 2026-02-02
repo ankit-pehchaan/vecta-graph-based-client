@@ -22,13 +22,41 @@ export interface RegisterVerifyPayload {
   otp: string;
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function generateCsrfToken(): string {
+  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  return Math.random().toString(36).slice(2);
+}
+
 export function getCsrfToken(): string {
   if (typeof window === "undefined") {
     return "";
   }
-  // Read CSRF token from cookie set by backend (CSRF_COOKIE_HTTP_ONLY=false)
-  const match = document.cookie.match(/csrf_token=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
+  const cookieToken = getCookie("csrf_token");
+  if (cookieToken) {
+    localStorage.setItem("csrf_token", cookieToken);
+    return cookieToken;
+  }
+  const existing = localStorage.getItem("csrf_token");
+  if (existing) {
+    return existing;
+  }
+  const token = generateCsrfToken();
+  localStorage.setItem("csrf_token", token);
+  return token;
 }
 
 async function request<T>(path: string, options: RequestInit): Promise<ApiResponse<T>> {
