@@ -75,16 +75,6 @@ export default function TopBar({ sessionId, status, sidebarCollapsed }: TopBarPr
             </div>
           )}
 
-          {/* New Session Button */}
-          <button
-            onClick={() => window.location.reload()}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">New Session</span>
-          </button>
         </div>
       </div>
     </header>
