@@ -61,6 +61,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     qualified_goals: [],
     possible_goals: [],
     rejected_goals: [],
+    deferred_goals: [],
   });
   const [collectedData, setCollectedData] = useState<Record<string, Record<string, any>>>({});
   const [fieldHistory, setFieldHistory] = useState<Record<string, Record<string, any[]>>>({});
@@ -87,7 +88,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { sessionId: savedId, messages: savedMessages, goalState: savedGoals, collectedData: savedData, currentNode: savedNode } = JSON.parse(savedSession);
         if (savedId) setSessionId(savedId);
         if (savedMessages) setMessages(savedMessages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
-        if (savedGoals) setGoalState(savedGoals);
+        if (savedGoals) {
+          setGoalState({
+            qualified_goals: savedGoals.qualified_goals || [],
+            possible_goals: savedGoals.possible_goals || [],
+            rejected_goals: savedGoals.rejected_goals || [],
+            deferred_goals: savedGoals.deferred_goals || [],
+          });
+        }
         if (savedData) setCollectedData(savedData);
         if (savedNode) setCurrentNode(savedNode);
       } catch (e) {
@@ -140,6 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       qualified_goals: [],
       possible_goals: [],
       rejected_goals: [],
+      deferred_goals: [],
     });
     setCollectedData({});
     setCurrentNode(null);

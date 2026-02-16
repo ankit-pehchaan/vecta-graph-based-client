@@ -19,11 +19,12 @@ export default function GoalsPage() {
   const { sessionId, status, goalState } = useApp();
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
-  const [filter, setFilter] = useState<"all" | "qualified" | "possible" | "rejected">("all");
+  const [filter, setFilter] = useState<"all" | "qualified" | "possible" | "rejected" | "deferred">("all");
 
   const allGoals = [
     ...goalState.qualified_goals.map((g) => ({ goal_id: g.goal_id || "", ...g, status: "qualified" as const })),
     ...goalState.possible_goals.map((g) => ({ goal_id: g.goal_id || "", ...g, status: "possible" as const })),
+    ...goalState.deferred_goals.map((g) => ({ goal_id: g.goal_id || "", ...g, status: "deferred" as const })),
     ...goalState.rejected_goals.map((id) => ({ goal_id: id, status: "rejected" as const })),
   ];
 
@@ -35,6 +36,7 @@ export default function GoalsPage() {
     total: allGoals.length,
     qualified: goalState.qualified_goals.length,
     possible: goalState.possible_goals.length,
+    deferred: goalState.deferred_goals.length,
     rejected: goalState.rejected_goals.length,
   };
 
@@ -82,13 +84,14 @@ export default function GoalsPage() {
               <option value="all">All Goals ({stats.total})</option>
               <option value="qualified">Active ({stats.qualified})</option>
               <option value="possible">Detected ({stats.possible})</option>
+              <option value="deferred">Later ({stats.deferred})</option>
               <option value="rejected">Rejected ({stats.rejected})</option>
             </select>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -134,6 +137,20 @@ export default function GoalsPage() {
           <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm text-slate-500">Deferred</p>
+                <p className="text-2xl font-bold text-slate-700 mt-1">{stats.deferred}</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center">
+                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm text-slate-500">Rejected</p>
                 <p className="text-2xl font-bold text-slate-700 mt-1">{stats.rejected}</p>
               </div>
@@ -165,6 +182,7 @@ export default function GoalsPage() {
               qualifiedGoals={goalState.qualified_goals as Goal[]}
               possibleGoals={goalState.possible_goals as Goal[]}
               rejectedGoals={goalState.rejected_goals}
+              deferredGoals={goalState.deferred_goals as Goal[]}
               onGoalClick={setSelectedGoal}
             />
           ) : (

@@ -7,13 +7,13 @@ interface Goal {
   type?: string;
   confidence?: number;
   deduced_from?: string[];
-  status?: "qualified" | "possible" | "rejected";
+  status?: "qualified" | "possible" | "rejected" | "deferred";
   [key: string]: any;
 }
 
 interface GoalCardProps {
   goal: Goal;
-  status: "qualified" | "possible" | "rejected";
+  status: "qualified" | "possible" | "rejected" | "deferred";
   onClick?: () => void;
 }
 
@@ -46,6 +46,16 @@ export default function GoalCard({ goal, status, onClick }: GoalCardProps) {
       icon: (
         <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      ),
+    },
+    deferred: {
+      gradient: "from-white to-slate-50",
+      border: "border-slate-200 hover:border-slate-300",
+      badge: "bg-slate-300 text-slate-700",
+      icon: (
+        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
     },

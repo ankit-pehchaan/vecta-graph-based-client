@@ -1,18 +1,27 @@
 /**
  * WebSocket message type definitions matching backend schemas.
+ *
+ * Backend sends these event types:
+ * - session_start: new session created
+ * - question: initial question (from orchestrator.start())
+ * - stream_start: streaming response about to begin
+ * - stream_delta: incremental text chunk
+ * - stream_end: streaming complete with full metadata
+ * - goal_qualification: ask user to confirm a deduced goal
+ * - scenario_question: scenario framing for inferred goals
+ * - error: something went wrong
+ * - complete: legacy completion (rarely used)
  */
 
-export type WSMessageType = 
+export type WSMessageType =
   | "answer"
   | "question"
   | "complete"
   | "error"
   | "session_start"
-  | "calculation"
-  | "visualization"
-  | "mode_switch"
-  | "traversal_paused"
-  | "resume_prompt"
+  | "stream_start"
+  | "stream_delta"
+  | "stream_end"
   | "goal_qualification"
   | "scenario_question";
 
@@ -31,11 +40,15 @@ export interface WSQuestion extends WSMessage {
   node_name: string;
   extracted_data: Record<string, any>;
   complete: boolean;
-  upcoming_nodes?: string[];  // Frontier for user visibility
-  all_collected_data?: Record<string, Record<string, any>>;  // All data across all nodes
+  upcoming_nodes?: string[];
+  all_collected_data?: Record<string, Record<string, any>>;
   planned_target_node?: string | null;
   planned_target_field?: string | null;
   goal_state?: GoalState;
+  goal_details?: {
+    goal_id: string;
+    missing_fields?: string[];
+  };
 }
 
 export interface WSComplete extends WSMessage {
@@ -43,7 +56,7 @@ export interface WSComplete extends WSMessage {
   node_complete: boolean;
   visited_all: boolean;
   next_node: string | null;
-  upcoming_nodes?: string[];  // Remaining frontier
+  upcoming_nodes?: string[];
   reason: string | null;
 }
 
@@ -58,39 +71,38 @@ export interface WSSessionStart extends WSMessage {
   initial_context: string | null;
 }
 
-export interface WSCalculation extends WSMessage {
-  type: "calculation";
-  calculation_type: string;
-  result: Record<string, any>;
-  can_calculate: boolean;
-  missing_data: string[];
-  message: string;
-  data_used: string[];
-}
+// --- Streaming messages ---
 
-export interface WSVisualization extends WSMessage {
-  type: "visualization";
-  calculation_type?: string;
-  inputs?: Record<string, any>;
-  chart_type: string;
-  data: Record<string, any>;
-  title: string;
-  description: string;
-  config: Record<string, any>;
-  charts?: Array<{
-    chart_type: string;
-    data: Record<string, any>;
-    title: string;
-    description: string;
-    config: Record<string, any>;
-  }>;
-}
-
-export interface WSModeSwitch extends WSMessage {
-  type: "mode_switch";
+export interface WSStreamStart extends WSMessage {
+  type: "stream_start";
   mode: string;
-  previous_mode?: string | null;
 }
+
+export interface WSStreamDelta extends WSMessage {
+  type: "stream_delta";
+  delta: string;
+}
+
+export interface WSStreamEnd extends WSMessage {
+  type: "stream_end";
+  mode: string;
+  question?: string | null;
+  node_name?: string | null;
+  extracted_data?: Record<string, any>;
+  complete?: boolean;
+  upcoming_nodes?: string[] | null;
+  all_collected_data?: Record<string, Record<string, any>>;
+  goal_state?: GoalState | null;
+  exploration_context?: {
+    goal_id?: string;
+    turn?: number;
+    max_turns?: number;
+  } | null;
+  scenario_context?: Record<string, any> | null;
+  phase1_summary?: string | null;
+}
+
+// --- Goal & Scenario messages ---
 
 export interface WSGoalQualification extends WSMessage {
   type: "goal_qualification";
@@ -98,17 +110,6 @@ export interface WSGoalQualification extends WSMessage {
   goal_id: string;
   goal_description?: string | null;
   goal_state?: GoalState;
-}
-
-export interface WSTraversalPaused extends WSMessage {
-  type: "traversal_paused";
-  paused_node?: string | null;
-  message: string;
-}
-
-export interface WSResumePrompt extends WSMessage {
-  type: "resume_prompt";
-  message: string;
 }
 
 export interface WSScenarioQuestion extends WSMessage {
@@ -123,16 +124,14 @@ export interface WSScenarioQuestion extends WSMessage {
   goal_state?: GoalState;
 }
 
-export type WSIncomingMessage = 
-  | WSQuestion 
-  | WSComplete 
-  | WSError 
+export type WSIncomingMessage =
+  | WSQuestion
+  | WSComplete
+  | WSError
   | WSSessionStart
-  | WSCalculation
-  | WSVisualization
-  | WSModeSwitch
-  | WSTraversalPaused
-  | WSResumePrompt
+  | WSStreamStart
+  | WSStreamDelta
+  | WSStreamEnd
   | WSGoalQualification
   | WSScenarioQuestion;
 
@@ -140,17 +139,17 @@ export type WSOutgoingMessage = WSAnswer | { initial_context?: string; user_goal
 
 export interface ChatMessage {
   id: string;
-  type: "user" | "bot" | "system" | "error" | "calculation" | "visualization" | "goal_qualification" | "mode_switch" | "traversal_paused" | "scenario_question";
+  type: "user" | "bot" | "system" | "error" | "goal_qualification" | "scenario_question" | "streaming";
   content: string;
   timestamp: Date;
   node_name?: string;
   extracted_data?: Record<string, any>;
-  upcoming_nodes?: string[];  // Frontier for display
-  all_collected_data?: Record<string, Record<string, any>>;  // All data across all nodes
+  upcoming_nodes?: string[];
+  all_collected_data?: Record<string, Record<string, any>>;
   metadata?: {
     session_id?: string;
     next_node?: string;
-    complete?: boolean;  // phase1_complete - data gathering done
+    complete?: boolean;
     goal_id?: string;
     goal_description?: string;
     // Scenario question metadata
@@ -158,32 +157,19 @@ export interface ChatMessage {
     max_turns?: number;
     goal_confirmed?: boolean;
     goal_rejected?: boolean;
-  };
-  // Calculation data
-  calculation?: {
-    calculation_type: string;
-    result: Record<string, any>;
-    can_calculate: boolean;
-    missing_data: string[];
-    message: string;
-    data_used: string[];
-  };
-  // Visualization data
-  visualization?: {
-    calculation_type?: string;
-    inputs?: Record<string, any>;
-    chart_type: string;
-    data: Record<string, any>;
-    title: string;
-    description: string;
-    config: Record<string, any>;
-    charts?: Array<{
-      chart_type: string;
-      data: Record<string, any>;
-      title: string;
-      description: string;
-      config: Record<string, any>;
-    }>;
+    goal_details?: {
+      goal_id: string;
+      missing_fields?: string[];
+    };
+    // Streaming metadata
+    mode?: string;
+    isStreaming?: boolean;
+    exploration_context?: {
+      goal_id?: string;
+      turn?: number;
+      max_turns?: number;
+    };
+    phase1_summary?: string;
   };
 }
 
@@ -191,4 +177,5 @@ export interface GoalState {
   qualified_goals: Array<Record<string, any>>;
   possible_goals: Array<Record<string, any>>;
   rejected_goals: string[];
+  deferred_goals: Array<Record<string, any>>;
 }

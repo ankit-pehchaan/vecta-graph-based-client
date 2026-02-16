@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/lib/auth";
+import { useApp } from "@/contexts/AppContext";
 
 interface NavItem {
   href: string;
@@ -11,7 +14,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    href: "/",
+    href: "/chat",
     label: "Chat",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,6 +67,21 @@ interface SidebarProps {
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { clearSession } = useApp();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      clearSession();
+      router.push("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <aside
@@ -73,7 +91,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       {/* Logo Section */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-slate-700/50">
-        <Link href="/" className="flex items-center gap-3 overflow-hidden">
+        <Link href="/chat" className="flex items-center gap-3 overflow-hidden">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/25">
             <span className="text-white font-bold text-lg">V</span>
           </div>
@@ -135,7 +153,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-slate-700/50">
+      <div className="p-3 border-t border-slate-700/50 space-y-2">
         <div
           className={`flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-800/50 ${
             isCollapsed ? "justify-center" : ""
@@ -151,6 +169,29 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             </div>
           )}
         </div>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:bg-red-500/20 disabled:opacity-50 group relative ${
+            isCollapsed ? "justify-center" : ""
+          }`}
+        >
+          <svg className="w-5 h-5 flex-shrink-0 group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          {!isCollapsed && (
+            <span className="font-medium text-sm whitespace-nowrap">
+              {loggingOut ? "Logging out..." : "Logout"}
+            </span>
+          )}
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl">
+              {loggingOut ? "Logging out..." : "Logout"}
+            </div>
+          )}
+        </button>
       </div>
     </aside>
   );
