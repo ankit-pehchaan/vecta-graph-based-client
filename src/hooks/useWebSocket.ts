@@ -32,9 +32,14 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isResumingRef = useRef<boolean>(false);
-  const isConnectingRef = useRef<boolean>(false); // Prevent multiple simultaneous connections
+  const isConnectingRef = useRef<boolean>(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  // Streaming state: track the message being built by stream_delta events
+  const streamingMessageIdRef = useRef<string | null>(null);
+  const streamingContentRef = useRef<string>("");
 
   const normalizeGoalState = useCallback((state: GoalState) => {
     return {
@@ -47,7 +52,20 @@ export function useWebSocket() {
 
   const addMessage = useCallback(
     (message: ChatMessage) => {
-      setMessages((prev) => [...prev, message]);
+      setMessages((prev: ChatMessage[]) => [...prev, message]);
+    },
+    [setMessages]
+  );
+
+  /**
+   * Update the last message in-place (used for streaming deltas).
+   * Finds the message by ID and replaces it.
+   */
+  const updateMessageById = useCallback(
+    (id: string, updater: (msg: ChatMessage) => ChatMessage) => {
+      setMessages((prev: ChatMessage[]) =>
+        prev.map((msg) => (msg.id === id ? updater(msg) : msg))
+      );
     },
     [setMessages]
   );
@@ -56,14 +74,10 @@ export function useWebSocket() {
     (event: MessageEvent) => {
       try {
         const data: WSIncomingMessage = JSON.parse(event.data);
-        
-        // Response received - re-enable input
-        setIsAwaitingResponse(false);
 
         switch (data.type) {
           case "session_start":
             setSessionId(data.session_id);
-            // Only show "Session started" message for new sessions, not resumes
             if (!isResumingRef.current) {
               addMessage({
                 id: `system-${Date.now()}`,
@@ -73,10 +87,12 @@ export function useWebSocket() {
                 metadata: { session_id: data.session_id },
               });
             }
-            isResumingRef.current = false; // Reset after handling
+            isResumingRef.current = false;
             break;
 
+          // --- Initial question (from orchestrator.start(), non-streaming) ---
           case "question":
+            setIsAwaitingResponse(false);
             if (data.question) {
               addMessage({
                 id: `bot-${Date.now()}`,
@@ -105,7 +121,7 @@ export function useWebSocket() {
             break;
 
           case "complete":
-            // Legacy handler - most completion is now handled via WSQuestion.complete
+            setIsAwaitingResponse(false);
             addMessage({
               id: `system-${Date.now()}`,
               type: "system",
@@ -121,6 +137,7 @@ export function useWebSocket() {
             break;
 
           case "error":
+            setIsAwaitingResponse(false);
             addMessage({
               id: `error-${Date.now()}`,
               type: "error",
@@ -129,112 +146,206 @@ export function useWebSocket() {
             });
             break;
 
-          case "calculation":
-            addMessage({
-              id: `calc-${Date.now()}`,
-              type: "calculation",
-              content: data.message,
-              timestamp: new Date(),
-              calculation: {
-                calculation_type: data.calculation_type,
-                result: data.result,
-                can_calculate: data.can_calculate,
-                missing_data: data.missing_data,
-                message: data.message,
-                data_used: data.data_used,
-              },
-            });
-            break;
+          // --- Streaming: stream_start → stream_delta* → stream_end ---
 
-          case "visualization":
-            addMessage({
-              id: `viz-${Date.now()}`,
-              type: "visualization",
-              content: data.description,
-              timestamp: new Date(),
-              visualization: {
-                calculation_type: data.calculation_type,
-                inputs: data.inputs,
-                chart_type: data.chart_type,
-                data: data.data,
-                title: data.title,
-                description: data.description,
-                config: data.config,
-                charts: data.charts,
-              },
-            });
-            break;
+          case "stream_start": {
+            // Streaming has begun — hide the "thinking" indicator but keep input disabled
+            setIsAwaitingResponse(false);
+            setIsStreaming(true);
 
-          case "mode_switch":
-            addMessage({
-              id: `mode-${Date.now()}`,
-              type: "system",
-              content: `Mode: ${data.mode}`,
-              timestamp: new Date(),
-            });
-            break;
+            const msgId = `stream-${Date.now()}`;
+            streamingMessageIdRef.current = msgId;
+            streamingContentRef.current = "";
 
-          case "traversal_paused":
+            // Add a placeholder "streaming" message that will be updated
             addMessage({
-              id: `paused-${Date.now()}`,
-              type: "system",
-              content: data.message,
-              timestamp: new Date(),
-            });
-            break;
-
-          case "resume_prompt":
-            addMessage({
-              id: `resume-${Date.now()}`,
-              type: "bot",
-              content: data.message,
-              timestamp: new Date(),
-            });
-            break;
-
-          case "goal_qualification":
-            addMessage({
-              id: `goal-qual-${Date.now()}`,
-              type: "goal_qualification",
-              content: data.question,
+              id: msgId,
+              type: "streaming",
+              content: "",
               timestamp: new Date(),
               metadata: {
-                goal_id: data.goal_id,
-                goal_description: data.goal_description || undefined,
+                mode: data.mode,
+                isStreaming: true,
               },
             });
+            break;
+          }
+
+          case "stream_delta": {
+            const currentId = streamingMessageIdRef.current;
+            if (currentId && data.delta) {
+              streamingContentRef.current += data.delta;
+              const newContent = streamingContentRef.current;
+              updateMessageById(currentId, (msg) => ({
+                ...msg,
+                content: newContent,
+              }));
+            }
+            break;
+          }
+
+          case "stream_end": {
+            setIsAwaitingResponse(false);
+            setIsStreaming(false);
+            const currentId = streamingMessageIdRef.current;
+
+            // Determine the final text content
+            const finalText =
+              data.question ||
+              streamingContentRef.current ||
+              "";
+
+            // Determine what type to convert to based on mode
+            const mode = data.mode || "data_gathering";
+            let finalType: ChatMessage["type"] = "bot";
+            if (mode === "goal_exploration") {
+              finalType = "bot"; // exploration questions render as bot messages
+            } else if (mode === "scenario_framing") {
+              finalType = "scenario_question";
+            }
+
+            if (currentId) {
+              // Finalize the streaming message
+              updateMessageById(currentId, (msg) => ({
+                ...msg,
+                type: finalType,
+                content: finalText,
+                node_name: data.node_name || undefined,
+                extracted_data: data.extracted_data || undefined,
+                upcoming_nodes: data.upcoming_nodes || undefined,
+                all_collected_data: data.all_collected_data || undefined,
+                metadata: {
+                  ...msg.metadata,
+                  isStreaming: false,
+                  complete: data.complete || false,
+                  mode,
+                  exploration_context: data.exploration_context || undefined,
+                  phase1_summary: data.phase1_summary || undefined,
+                },
+              }));
+            } else {
+              // No streaming message existed (e.g., goal exploration/scenario that
+              // only yields stream_end without prior stream_start)
+              addMessage({
+                id: `bot-${Date.now()}`,
+                type: finalType,
+                content: finalText,
+                timestamp: new Date(),
+                node_name: data.node_name || undefined,
+                extracted_data: data.extracted_data || undefined,
+                upcoming_nodes: data.upcoming_nodes || undefined,
+                all_collected_data: data.all_collected_data || undefined,
+                metadata: {
+                  complete: data.complete || false,
+                  mode,
+                  exploration_context: data.exploration_context || undefined,
+                  phase1_summary: data.phase1_summary || undefined,
+                },
+              });
+            }
+
+            // Update app state
+            if (data.all_collected_data) {
+              setCollectedData(data.all_collected_data);
+            }
+            if (data.node_name) {
+              setCurrentNode(data.node_name);
+            }
             if (data.goal_state) {
               setGoalState(normalizeGoalState(data.goal_state));
             }
-            break;
 
-          case "scenario_question":
-            // Scenario-based question for inferred goals
-            addMessage({
-              id: `scenario-${Date.now()}`,
-              type: "scenario_question",
-              content: data.question,
-              timestamp: new Date(),
-              metadata: {
-                goal_id: data.goal_id,
-                goal_description: data.goal_description || undefined,
-                turn: data.turn,
-                max_turns: data.max_turns,
-                goal_confirmed: data.goal_confirmed || undefined,
-                goal_rejected: data.goal_rejected || undefined,
-              },
-            });
+            // Reset streaming refs
+            streamingMessageIdRef.current = null;
+            streamingContentRef.current = "";
+            break;
+          }
+
+          // --- Goal & Scenario messages ---
+
+          case "goal_qualification": {
+            setIsAwaitingResponse(false);
+            setIsStreaming(false);
+            const gqId = streamingMessageIdRef.current;
+            const gqContent = data.question || streamingContentRef.current || "";
+            const gqMeta = {
+              goal_id: data.goal_id,
+              goal_description: data.goal_description || undefined,
+              isStreaming: false,
+            };
+
+            if (gqId) {
+              // Finalize the in-progress streaming message
+              updateMessageById(gqId, (msg) => ({
+                ...msg,
+                type: "goal_qualification" as ChatMessage["type"],
+                content: gqContent,
+                metadata: { ...msg.metadata, ...gqMeta },
+              }));
+            } else {
+              addMessage({
+                id: `goal-qual-${Date.now()}`,
+                type: "goal_qualification",
+                content: gqContent,
+                timestamp: new Date(),
+                metadata: gqMeta,
+              });
+            }
+
             if (data.goal_state) {
               setGoalState(normalizeGoalState(data.goal_state));
             }
+            streamingMessageIdRef.current = null;
+            streamingContentRef.current = "";
             break;
+          }
 
+          case "scenario_question": {
+            setIsAwaitingResponse(false);
+            setIsStreaming(false);
+            const sqId = streamingMessageIdRef.current;
+            const sqContent = data.question || streamingContentRef.current || "";
+            const sqMeta = {
+              goal_id: data.goal_id,
+              goal_description: data.goal_description || undefined,
+              turn: data.turn,
+              max_turns: data.max_turns,
+              goal_confirmed: data.goal_confirmed || undefined,
+              goal_rejected: data.goal_rejected || undefined,
+              isStreaming: false,
+            };
+
+            if (sqId) {
+              // Finalize the in-progress streaming message
+              updateMessageById(sqId, (msg) => ({
+                ...msg,
+                type: "scenario_question" as ChatMessage["type"],
+                content: sqContent,
+                metadata: { ...msg.metadata, ...sqMeta },
+              }));
+            } else {
+              addMessage({
+                id: `scenario-${Date.now()}`,
+                type: "scenario_question",
+                content: sqContent,
+                timestamp: new Date(),
+                metadata: sqMeta,
+              });
+            }
+
+            if (data.goal_state) {
+              setGoalState(normalizeGoalState(data.goal_state));
+            }
+            streamingMessageIdRef.current = null;
+            streamingContentRef.current = "";
+            break;
+          }
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
       }
     },
-    [addMessage, setSessionId, setCollectedData, setCurrentNode, setGoalState, normalizeGoalState]
+    [addMessage, updateMessageById, setSessionId, setCollectedData, setCurrentNode, setGoalState, normalizeGoalState, setIsAwaitingResponse]
   );
 
   const connect = useCallback(
@@ -243,21 +354,16 @@ export function useWebSocket() {
       if (isConnectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
         return;
       }
-
-      // If already connecting or connected, don't start another connection
       if (wsRef.current?.readyState === WebSocket.CONNECTING) {
         return;
       }
 
       isConnectingRef.current = true;
       setStatus("connecting");
-      
-      // Track if we're resuming to suppress duplicate "Session started" messages
+
       isResumingRef.current = !!existingSessionId;
-      
-      // Connect with session_id as path parameter if resuming existing session
-      // Backend expects: /ws/{session_id} for existing sessions, /ws for new sessions
-      const wsUrl = existingSessionId 
+
+      const wsUrl = existingSessionId
         ? `${WS_URL}/${existingSessionId}`
         : WS_URL;
       const ws = new WebSocket(wsUrl);
@@ -266,7 +372,7 @@ export function useWebSocket() {
         isConnectingRef.current = false;
         setStatus("connected");
         setReconnectAttempts(0);
-        
+
         // Only send initial context for new sessions (not resuming)
         if (!existingSessionId) {
           ws.send(
@@ -283,7 +389,7 @@ export function useWebSocket() {
       ws.onclose = () => {
         isConnectingRef.current = false;
         setStatus("disconnected");
-        setIsAwaitingResponse(false); // Re-enable input on disconnect
+        setIsAwaitingResponse(false);
         wsRef.current = null;
       };
 
@@ -291,7 +397,7 @@ export function useWebSocket() {
         isConnectingRef.current = false;
         console.error("WebSocket error:", error);
         setStatus("error");
-        setIsAwaitingResponse(false); // Re-enable input on error
+        setIsAwaitingResponse(false);
       };
 
       wsRef.current = ws;
@@ -310,10 +416,8 @@ export function useWebSocket() {
 
   const sendMessage = useCallback((answer: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      // Disable input while waiting for response
       setIsAwaitingResponse(true);
-      
-      // Add user message to chat
+
       addMessage({
         id: `user-${Date.now()}`,
         type: "user",
@@ -321,7 +425,6 @@ export function useWebSocket() {
         timestamp: new Date(),
       });
 
-      // Send to server
       const message: WSOutgoingMessage = { type: "answer", answer };
       wsRef.current.send(JSON.stringify(message));
     }
@@ -330,7 +433,6 @@ export function useWebSocket() {
   // Start a new session (clears existing state)
   const startSession = useCallback(
     (userGoal?: string, forceNew = false) => {
-      // Clear state for new sessions
       if (forceNew || !hasExistingSession) {
         clearSession();
       }
@@ -341,16 +443,14 @@ export function useWebSocket() {
 
   // Resume an existing session (keeps state, reconnects WebSocket)
   const resumeSession = useCallback(() => {
-    // Only resume if we have a sessionId, are disconnected, and not already connecting
     if (sessionId && status === "disconnected" && !isConnectingRef.current) {
       connect(undefined, sessionId);
     }
   }, [sessionId, status, connect]);
 
-  // Cleanup on unmount - only close WebSocket, don't clear state
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Just close WebSocket, state is preserved in localStorage
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -373,5 +473,6 @@ export function useWebSocket() {
     hasExistingSession,
     clearSession,
     isAwaitingResponse,
+    isStreaming,
   };
 }

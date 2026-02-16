@@ -22,6 +22,7 @@ export default function ChatInterface() {
     hasExistingSession,
     clearSession,
     isAwaitingResponse,
+    isStreaming,
   } = useWebSocket();
 
   const [userGoal, setUserGoal] = useState("");
@@ -162,11 +163,11 @@ export default function ChatInterface() {
             <div className="p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-slate-100">
               <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center mb-3">
                 <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </div>
-              <h3 className="font-semibold text-slate-800 text-sm mb-1">Visualizations</h3>
-              <p className="text-xs text-slate-500">Interactive charts and graphs</p>
+              <h3 className="font-semibold text-slate-800 text-sm mb-1">Goal-Focused</h3>
+              <p className="text-xs text-slate-500">Conversations driven by your goals</p>
             </div>
             <div className="p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-slate-100">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center mb-3">
@@ -298,13 +299,15 @@ export default function ChatInterface() {
           <div className="max-w-3xl mx-auto">
             <InputBox
               onSend={handleSendMessage}
-              disabled={!isConnected || isAwaitingResponse}
+              disabled={!isConnected || isAwaitingResponse || isStreaming}
               isLoading={isAwaitingResponse}
               placeholder={
                 isAwaitingResponse
                   ? "Vecta is thinking..."
+                  : isStreaming
+                  ? "Vecta is responding..."
                   : isSessionComplete
-                  ? "Ask for visualizations, projections, or more details..."
+                  ? "Continue chatting or ask follow-up questions..."
                   : isConnected
                   ? "Type your message to Vecta..."
                   : "Connecting to Vecta..."

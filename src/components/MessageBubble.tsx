@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { ChatMessage } from "@/types/websocket";
-import Chart from "./Chart";
-import { VectaAvatar, BookmarkButton } from "./chat";
+import { VectaAvatar } from "./chat";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -52,7 +51,7 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
   };
 
   // System message
-  if (message.type === "system" || message.type === "mode_switch" || message.type === "traversal_paused") {
+  if (message.type === "system") {
     return (
       <div className="flex justify-center my-4 animate-fade-in">
         <div className="bg-slate-100/80 backdrop-blur-sm border border-slate-200/60 rounded-full px-4 py-2 text-xs text-slate-600 font-medium shadow-sm flex items-center gap-2">
@@ -171,140 +170,31 @@ export default function MessageBubble({ message, onGoalAction }: MessageBubblePr
     );
   }
 
-  // Calculation message
-  if (message.type === "calculation" && message.calculation) {
-    const calc = message.calculation;
+  // Streaming message (in-progress response being built token by token)
+  if (message.type === "streaming") {
+    const isStillStreaming = message.metadata?.isStreaming;
     return (
-      <div className="flex justify-start my-4 animate-fade-in-up">
+      <div className="flex justify-start my-3 animate-fade-in-up group">
         <VectaAvatar size="sm" />
-        <div className="ml-3 max-w-[85%] bg-white border border-emerald-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="bg-emerald-50/50 px-4 py-3 border-b border-emerald-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span className="font-semibold text-emerald-900 text-sm capitalize">{calc.calculation_type.replace(/_/g, " ")}</span>
-            </div>
-            {renderTimestamp()}
-          </div>
-          <div className="p-5">
-            <p className="text-slate-700 mb-4">{calc.message}</p>
-            
-            {calc.can_calculate && calc.result ? (
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(calc.result).map(([key, value]) => (
-                  <div key={key} className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100/50">
-                    <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</p>
-                    <p className="text-xl font-bold text-emerald-900">
-                      {typeof value === "number" ? value.toLocaleString("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 }) : String(value)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-amber-50 text-amber-800 p-4 rounded-xl border border-amber-200">
-                <p className="font-semibold text-sm mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  Missing Information
-                </p>
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {calc.missing_data.map((item, idx) => <li key={idx}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-            
-            {calc.data_used.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
-                Data sources: {calc.data_used.join(", ")}
-              </div>
+        <div className="max-w-[75%] rounded-2xl px-5 py-3.5 shadow-sm chat-bubble-bot ml-3">
+          <div className="whitespace-pre-wrap leading-relaxed text-[15px]">
+            {message.content || (
+              <span className="inline-flex items-center gap-1.5 text-slate-400">
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </span>
             )}
           </div>
+          {isStillStreaming && message.content && (
+            <span className="inline-block w-0.5 h-4 bg-indigo-400 animate-pulse ml-0.5 align-text-bottom" />
+          )}
         </div>
       </div>
     );
   }
 
-  // Visualization message
-  if (message.type === "visualization" && message.visualization) {
-    const viz = message.visualization;
-    const charts = viz.charts && viz.charts.length > 0
-      ? viz.charts
-      : [
-          {
-            chart_type: viz.chart_type,
-            data: viz.data,
-            title: viz.title,
-            description: viz.description,
-            config: viz.config,
-          },
-        ];
-    const firstChart = charts[0];
-    return (
-      <div className="flex justify-start my-4 animate-fade-in-up">
-        <VectaAvatar size="sm" />
-        <div className="ml-3 max-w-[90%] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 text-lg">{firstChart.title}</h3>
-              <p className="text-slate-500 text-sm mt-1">{firstChart.description}</p>
-            </div>
-            <BookmarkButton
-              title={firstChart.title}
-              description={firstChart.description}
-              chartType={firstChart.chart_type}
-              data={firstChart.data}
-              config={firstChart.config}
-            />
-          </div>
-          <div className="p-4 bg-slate-50/50 space-y-4">
-            {charts.map((chart, index) => (
-              <div key={`${chart.chart_type}-${index}`} className="bg-white rounded-xl p-4 border border-slate-100">
-                <Chart
-                  chartType={chart.chart_type}
-                  data={chart.data}
-                  title={chart.title}
-                  config={chart.config}
-                />
-              </div>
-            ))}
-            {(viz.calculation_type || viz.inputs) && (
-              <div className="bg-white rounded-xl p-4 border border-slate-100 text-xs text-slate-500 space-y-1">
-                {viz.calculation_type && (
-                  <div>
-                    <span className="font-semibold text-slate-700">Calculation:</span>{" "}
-                    {viz.calculation_type.replace(/_/g, " ")}
-                  </div>
-                )}
-                {viz.inputs && Object.keys(viz.inputs).length > 0 && (
-                  <div>
-                    <span className="font-semibold text-slate-700">Inputs:</span>{" "}
-                    {Object.entries(viz.inputs)
-                      .map(([key, value]) => `${key}: ${value}`)
-                      .join(", ")}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="px-4 py-2 bg-slate-50 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span className="capitalize">{firstChart.chart_type.replace(/_/g, " ")}</span>
-            </span>
-            {renderTimestamp()}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Regular chat message
+  // Regular chat message (user or bot)
   const isUser = message.type === "user";
 
   return (
